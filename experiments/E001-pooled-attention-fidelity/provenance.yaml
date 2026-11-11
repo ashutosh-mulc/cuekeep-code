@@ -1,0 +1,24 @@
+# ARS experiment_provenance[] entry. Update `executed`, `result_file` and the negative results as runs land.
+experiment_id: "E001"
+title: "Pooled stand-in fidelity (log m bias, covariance correction)"
+description: "Measures how well mean-pooled region K/V with a log m logit bias reproduce exact attention over Qwen3-VL-4B-Thinking visual tokens, and how well a low-rank-covariance-corrected demand score ranks regions by true attention mass."
+repro_lock: null
+repro_lock_reason: "GPU/CPU numerical experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E001-pooled-attention-fidelity/<timestamp>/."
+planned_vs_executed:
+  - planned: "Synthetic sanity check (CPU): relative attention-output error and demand-score ranking vs within-region spread"
+    executed: false
+    skip_reason: "not yet run"
+  - planned: "Relative attention-output error vs region size g in {2,4,8}, per layer, on real Qwen3-VL-4B-Thinking KV dumps"
+    executed: false
+    skip_reason: "not yet run"
+  - planned: "Effect of the log m bias (with vs without) on output error"
+    executed: false
+    skip_reason: "not yet run"
+  - planned: "Spearman rho and top-8 recall of the demand score vs covariance rank r in {0,2,4,8}"
+    executed: false
+    skip_reason: "not yet run"
+  - planned: "Pre- vs post-RoPE pooling"
+    executed: false
+    skip_reason: "not yet run"
+negative_results: []
+known_limitations: []

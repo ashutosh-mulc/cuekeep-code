@@ -1,0 +1,8 @@
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+  - configs/eval/smoke.yaml
+
+datasets:
+  - {name: mme, split: test, limit: 20, seed: 0}
+  - {name: screenspot_pro, split: train, limit: 20, seed: 0}

@@ -1,0 +1,15 @@
+# ARS Material Passport `experiment_provenance[]` entry (schema: ARS shared/contracts/passport/experiment_provenance_entry.schema.json).
+# Exported with `python scripts/export_provenance.py`. Keep it honest: ARS integrity gates check claims against it.
+experiment_id: "E000"
+title: "Server environment smoke test + trace-length census"
+description: ""
+# GPU experiments are not ARS/LLM sessions, so the ARS repro_lock does not apply. Our configuration trail is
+# runs/<id>/<ts>/{config.yaml,meta.json,env.json}.
+repro_lock: null
+repro_lock_reason: "GPU experiment run outside ARS, with no ARS prompts to hash. Config, git SHA and environment (torch/transformers/CUDA/GPU) are recorded per run in runs/E000/<timestamp>/."
+planned_vs_executed:
+  - planned: "Trace length, visual-token count, peak memory and ms/token for Qwen3-VL-4B-Thinking on 20 MME + 20 ScreenSpot-Pro samples (full KV)"
+    executed: false
+    skip_reason: "not yet run"
+negative_results: []
+known_limitations: []

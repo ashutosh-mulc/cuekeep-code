@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cuekeep"
+version = "0.1.0"
+description = "Pooled-KV paging for visual tokens in thinking VLMs"
+readme = "README.md"
+requires-python = ">=3.9"          # GPU server: 3.11 (transformers 5.x needs >=3.10); 3.9 is enough for the CPU math tests
+dependencies = [
+  "pyyaml>=6",
+  "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# torch is installed by scripts/setup_server.sh from the CUDA wheel index; for CPU-only tests: pip install torch
+gpu = [
+  "transformers>=5.4,<6",
+  "accelerate>=1.0",
+  "safetensors",
+  "pillow",
+]
+eval = [
+  "datasets>=3",
+  "pandas",
+  "wandb",
+]
+dev = [
+  "pytest>=8",
+  "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["gpu: needs a CUDA device (run on the server)"]
+
+[tool.ruff]
+line-length = 120

@@ -1,0 +1,5 @@
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+  - configs/method/full_kv.yaml
+  - configs/eval/thinking_suite.yaml

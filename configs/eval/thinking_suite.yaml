@@ -1,0 +1,12 @@
+# Main-table benchmarks run through VLMEvalKit (or lmms-eval). Final list to be fixed in M1 (see E002).
+# Candidates: reasoning-heavy (long traces) + high-resolution (where regions matter).
+eval:
+  harness: vlmevalkit
+  benchmarks:
+    - MathVista_MINI
+    - MathVerse_MINI
+    - MMMU_DEV_VAL
+    - HRBench4K
+    - VStarBench
+    - ScreenSpot_Pro
+  report: [accuracy, mean_trace_tokens, mean_response_seconds, mean_ms_per_token, max_peak_mem_gib, h2d_bytes_per_token]

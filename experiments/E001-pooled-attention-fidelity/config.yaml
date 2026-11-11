@@ -1,0 +1,21 @@
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+
+# Phase A runs on CPU with synthetic keys. Phase B: `source=dump dump_path=...` on the GPU server.
+allow_cpu: true
+source: synthetic             # synthetic | dump
+dump_path: null               # .pt file written by scripts/dump_visual_kv.py
+
+synthetic:
+  grid: [23, 30]              # merged-token grid (h, w); not divisible by g, so edge regions are ragged
+  text_tokens: 256            # dense non-visual KV attended alongside (makes the log m bias matter)
+  kv_heads: 8
+  head_dim: 128
+  num_queries: 64
+  spreads: [0.05, 0.2, 0.5]   # within-region key std (relative to the region-centre std)
+
+sweep:
+  region_size: [2, 4, 8]
+  cov_rank: [0, 2, 4, 8]
+  top_b: 8

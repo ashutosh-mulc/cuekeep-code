@@ -1,0 +1,12 @@
+# Pooled-KV paging, first version. Knobs documented in research/method.md.
+method:
+  name: cuekeep
+  region_size: 4          # g: g×g merged tokens per region
+  cov_rank: 4             # r: low-rank covariance factor for the demand score (0 = plain pooled logit)
+  slot_capacity: 16       # C: hard cap on regions resident with exact KV
+  fetch_budget: 2         # B: max regions fetched per refresh
+  refresh_every: 1        # k: decode steps between re-scoring
+  layers_paged: "2:"      # python slice over decoder layers
+  score_agg: max          # max | mean over heads and queries
+  ema_decay: 0.9
+  min_residency: 4

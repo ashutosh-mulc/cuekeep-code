@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Raw run outputs (curated results live in experiments/E###/results/)
+runs/
+wandb/
+*.log
+
+# Large artifacts
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.npz
+kv_dumps/
+huggingface_cache/
+
+# Third-party source checkouts (pinned in third_party/README.md)
+third_party/src/
+
+# Generated ARS inputs (regenerate with scripts/export_provenance.py and scripts/build_corpus.sh)
+paper/passports/*.generated.yaml
+paper/passports/*.rejections.yaml
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
