@@ -1,0 +1,20 @@
+# Gate G7: free-running accuracy pilot on the dev split. Held until G3, G4 and G6 pass.
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+  - configs/method/cuekeep_v0.yaml
+  - configs/eval/thinking_suite.yaml
+
+tier: pilot
+requires_gates: [G3, G4, G6]
+seeds: [0]
+eval:
+  benchmarks: null                      # set to 2 benchmarks chosen from E002's gate run
+  split: {role: dev, dev_size: 150}
+methods: [full_kv, cuekeep, prune_once]
+budgets: [0.25]
+
+gate:
+  max_points_below_full: 4
+  max_points_below_prune_once: 2
+  max_trace_growth: 0.15

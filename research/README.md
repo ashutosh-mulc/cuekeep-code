@@ -8,6 +8,7 @@ down here. The repository history is the audit trail.
 | [overview.md](overview.md) | Problem, hypotheses, claimed contributions | When the pitch changes |
 | [method.md](method.md) | The method, precisely: math, data structures, budgets | When the algorithm changes |
 | [related_work.md](related_work.md) | Closest work, the novelty argument, what we must cite and contrast | When a new close paper appears |
+| [experiment_design.md](experiment_design.md) | The staged plan: gates, thresholds, on-fail actions, the dev/test split, the shared dump | When a gate or tier is added or a threshold changes (needs the human) |
 | [roadmap.md](roadmap.md) | Milestones toward the deadline, with status | Weekly |
 | [open_questions.md](open_questions.md) | Risks and unknowns, each linked to the experiment that resolves it | As questions open and close |
 | [literature/](literature/) | Survey notes and reading notes, one file per source or survey, date-prefixed | After reading |

@@ -1,0 +1,28 @@
+# Code check on CPU with synthetic keys. Not a gate and not a result (see README).
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+
+tier: synthetic
+allow_cpu: true
+source: synthetic
+
+synthetic:
+  grid: [23, 30]              # merged-token grid (h, w); not divisible by g, so edge regions are ragged
+  text_tokens: 256            # dense non-visual KV attended alongside (makes the log m bias matter)
+  kv_heads: 8
+  head_dim: 128
+  num_queries: 16
+  n_waves: 8                  # smooth spatial field; generated once, shared by every g
+  noise: [0.1, 0.5]           # per-token detail on top of the smooth field
+  query_scales: [1, 4, 8]     # ≈ logit std; real attention logits are often several units wide
+  head_gain_std: 0.5          # spread of per-head query norms ("loud" heads)
+
+sweep:
+  region_size: [2, 4, 8]
+  cov_rank: [0, 4, 16]
+  cov_mode: [quadratic, capped]
+  budgets: [0.10, 0.25]       # fraction of regions exact (oracle residency per step); the rest pooled vs dropped
+  top_b: 8
+  oracle_benefit: true        # R extra attention passes per unit
+  oracle_max_regions: 256     # skipped for units with more regions than this

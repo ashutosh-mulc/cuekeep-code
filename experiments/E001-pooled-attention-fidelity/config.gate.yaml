@@ -1,0 +1,27 @@
+# Gate G2: stand-in fidelity on real keys, on the gate dump (research/experiment_design.md).
+#   python scripts/run.py experiments/E001-pooled-attention-fidelity/config.gate.yaml dump_path=<gate dump dir>
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+
+tier: gate
+requires_gates: [G1]
+source: dump
+dump_path: null               # directory written by scripts/dump_visual_kv.py (gate dump: 8 + 8 dev samples)
+
+sweep:
+  region_size: [2, 4, 8]
+  cov_rank: [0, 4, 16]
+  cov_mode: [quadratic, capped]
+  budgets: [0.10, 0.25]
+  top_b: 8
+  oracle_benefit: true
+  oracle_max_regions: 256
+
+gate:                         # pass thresholds; the runner writes the verdict to summary["gate/pass"]
+  capture_max_rel_err: 0.01   # 1. recomputed attention matches the model's recorded output
+  logm_helps_min_frac: 0.80   # 2. the log m bias lowers all-pooled error in ≥ 80% of units, at every g
+  budget: 0.25                # 3. with the oracle top 25% of regions exact and the rest pooled ...
+  region_sizes: [2, 4]
+  max_rel_err: 0.10           #    ... median output error ≤ 0.10
+  min_frac: 0.75              #    ... in ≥ 75% of units, and stand-ins beat dropping in ≥ 75% of units

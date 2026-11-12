@@ -1,5 +1,6 @@
 # Defaults inherited by every experiment. Override in experiments/E###/config.yaml.
-seed: 0
+seed: 0                 # base seed; per-sample seed = seed * 1000003 + sample index
+seeds: [0]              # main tables average over several base seeds (sampling decoding), e.g. [0, 1, 2]
 device: cuda            # the runner falls back to cpu only for CPU-only experiments (allow_cpu: true)
 allow_cpu: false
 tracking:

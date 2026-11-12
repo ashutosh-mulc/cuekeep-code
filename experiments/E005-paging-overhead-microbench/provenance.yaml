@@ -1,0 +1,13 @@
+# ARS experiment_provenance[] entry. Update `executed`, `result_file` and the negative results as runs land.
+# Only main-tier results back paper claims; gate-tier results decide go / no-go and are listed for the record.
+experiment_id: "E005"
+title: "Paging overhead microbenchmark"
+description: "Times the per-decode-step cost of region scoring, fetch commit and attention-input assembly across all paged layers, with real model shapes and no dataset, relative to the full-KV decode step time from E000."
+repro_lock: null
+repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E005-paging-overhead-microbench/<timestamp>/."
+planned_vs_executed:
+  - planned: "Gate tier (G5): per-step paging overhead and commit wait vs the full-KV decode step, for 1k/4k/8k visual tokens, g in {2,4}, refresh interval in {1,2,4}"
+    executed: false
+    skip_reason: "not yet run; held by gate G1"
+negative_results: []
+known_limitations: []

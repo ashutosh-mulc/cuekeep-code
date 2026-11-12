@@ -1,0 +1,43 @@
+# Gate ledger. Edit with `python scripts/gate.py set ...`, not by hand.
+# Design, thresholds and on-fail actions: research/experiment_design.md
+gates:
+  G0:
+    title: Environment and GPU code paths
+    experiment: null
+    unlocks: [G1, G5]
+    status: pending
+  G1:
+    title: Premise census (trace length, visual-KV share, token order)
+    experiment: E000-env-smoke
+    unlocks: [G2, G3, G5, G6]
+    status: pending
+  G2:
+    title: Stand-in fidelity on real keys
+    experiment: E001-pooled-attention-fidelity
+    unlocks: [E001 main, G4]
+    status: pending
+  G3:
+    title: Attention shift during decoding
+    experiment: E003-attention-shift
+    unlocks: [E003 main, G7]
+    status: pending
+  G4:
+    title: Paging fidelity under teacher forcing (masked simulation)
+    experiment: E004-teacher-forced-paging-fidelity
+    unlocks: [G7, real offload build]
+    status: pending
+  G5:
+    title: Paging overhead microbenchmark
+    experiment: E005-paging-overhead-microbench
+    unlocks: [real offload build]
+    status: pending
+  G6:
+    title: Reference harness sanity on the dev split
+    experiment: E002-full-kv-reference
+    unlocks: [E002 main, G7]
+    status: pending
+  G7:
+    title: Free-running accuracy pilot on the dev split
+    experiment: E006-accuracy-memory-tradeoff
+    unlocks: [E006 main, baseline implementations]
+    status: pending

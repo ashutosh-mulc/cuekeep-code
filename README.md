@@ -24,30 +24,32 @@ ViMoD, VisionPulse, SparseVILA and ShadowKV is set out in [research/related_work
 | Path | What lives there |
 |---|---|
 | [research/](research/) | The research record: overview, method, related work, roadmap, decision log, dated lab notebook |
-| [experiments/](experiments/) | One folder per experiment (`E###-slug/`) with hypothesis, config, commands, results, and conclusion. The index is in [experiments/README.md](experiments/README.md) |
+| [experiments/](experiments/) | One folder per experiment (`E###-slug/`), each with a small **gate** tier that holds back its main tier. Pre-registered thresholds, runs, results and gate decisions. Index: [experiments/README.md](experiments/README.md); design: [research/experiment_design.md](research/experiment_design.md); ledger: [experiments/gates.yaml](experiments/gates.yaml) |
 | [configs/](configs/) | Composable YAML configs (`model/`, `method/`, `eval/`); every experiment config extends `configs/base.yaml` |
-| [src/cuekeep/](src/cuekeep/) | The library: `cache/` (the paged cache and pooling math), `models/`, `data/`, `baselines/`, `eval/`, `tracking/` |
+| [src/cuekeep/](src/cuekeep/) | The library: `cache/` (the paged cache and pooling math), `analysis/` (dump format, attention-shift metrics), `models/`, `data/`, `baselines/`, `eval/`, `tracking/` (runs, configs, gates) |
 | [paper/](paper/) | ARS `academic-pipeline` workspace: one folder per stage (research → draft → integrity → review → revision → final), the Material Passport, figures |
-| [scripts/](scripts/) | `new_experiment.py`, `run.py`, `launch.sh` / `slurm_template.sbatch`, `setup_server.sh`, `env_check.py`, `export_provenance.py`, `build_corpus.sh` |
+| [scripts/](scripts/) | `new_experiment.py`, `run.py`, `gate.py`, `launch.sh` / `slurm_template.sbatch`, `setup_server.sh`, `env_check.py`, `export_provenance.py`, `build_corpus.sh` |
 | [tests/](tests/) | Unit tests; the pooling-math tests run on CPU |
 | [third_party/](third_party/) | External codebases we borrow from: provenance, licenses, pinned commits |
 | `runs/` | Raw run outputs (gitignored). Curated results are copied into `experiments/E###/results/` |
 
 ## Workflow
 
-On the GPU server (NVIDIA, CUDA):
+On the GPU server (NVIDIA, CUDA). The full ordered task list for the server agent is
+[SERVER_CHECKLIST.md](SERVER_CHECKLIST.md).
 
 ```bash
 bash scripts/setup_server.sh                # .venv with CUDA torch, transformers 5.x, VLMEvalKit
 python scripts/env_check.py --model         # GPUs, versions, H2D bandwidth, model shapes → paste into the notebook
-GPUS=0 bash scripts/launch.sh experiments/E000-env-smoke/config.yaml     # detached, logged
+GPUS=0 bash scripts/launch.sh experiments/E000-env-smoke/config.gate.yaml     # detached, logged
 ```
 
 Anywhere:
 
 ```bash
 python scripts/new_experiment.py "region size sweep"     # scaffolds experiments/E00N-region-size-sweep/
-python scripts/run.py experiments/E001-pooled-attention-fidelity/config.yaml sweep.top_b=4 --tag quick
+python scripts/run.py experiments/E001-pooled-attention-fidelity/config.synthetic.yaml sweep.top_b=4 --tag quick   # CPU code check
+python scripts/gate.py list                 # which gates have passed; a held experiment will not start
 pytest -q                                   # CPU tests (needs torch + pyyaml)
 ```
 

@@ -41,10 +41,11 @@ def main() -> None:
                          .replace("{{DATE}}", today).replace("{{QUESTION}}", args.question or "—"))
 
     index = EXP / "README.md"
-    row = f"| [{eid}]({folder.name}/) | {args.title} | {args.question or '—'} | ☐ planned | — | {today} |\n"
+    row = f"| [{eid}]({folder.name}/) | {args.title} | — | — | ☐ planned | — | {today} |\n"
     text = index.read_text()
     index.write_text(text.replace(INDEX_MARKER, row + INDEX_MARKER))
-    print(f"created {folder.relative_to(ROOT)}. Write the hypothesis and success criterion before running.")
+    print(f"created {folder.relative_to(ROOT)}. Before running: write the pre-registration, set requires_gates in "
+          f"the tier configs, and add the gate to experiments/gates.yaml and research/experiment_design.md.")
 
 
 if __name__ == "__main__":

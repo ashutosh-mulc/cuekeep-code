@@ -4,16 +4,19 @@ STUB, to be written on the GPU server against the installed transformers version
 
 Plan
 ----
-1. Run prefill with the stock DynamicCache. Then, for each paged layer, split out the visual span
-   (from `Qwen3VLAdapter.visual_span`), call `PagedVisualCache.ingest(layer, k_vis, v_vis, region_ids)`,
-   and **physically delete** the visual span from the DynamicCache layer.
+1. Run prefill with the stock DynamicCache. Then, for each paged layer, split out the visual spans
+   (from `Qwen3VLAdapter.visual_spans`), concatenate them, build ids with
+   `pooling.region_ids_for_spans`, call `PagedVisualCache.ingest(layer, k_vis, v_vis, region_ids)`
+   once, and **physically delete** the visual spans from the DynamicCache layer.
 2. Wrap the attention of each paged decoder layer (register a custom attention function via
-   `AttentionInterface`, or patch `Qwen3VLTextAttention.forward`). It should:
-     a. call `cache.step(layer, q, t)` every `refresh_every` steps (scoring + fetch);
-     b. call `cache.sync()`;
-     c. concatenate `[text K | cache.attention_inputs(layer)]` and build the additive mask
-        `[0... | bias]`;
-     d. run SDPA with that float mask.
+   `AttentionInterface`, or patch `Qwen3VLTextAttention.forward`). At decode step t it should:
+     a. compute `other_lse` = logsumexp over the text/generated keys of scale·q·k, per head and query
+        (needed so region scores are per-head attention *shares*);
+     b. every `refresh_every` steps, call `cache.step(layer, q, t, other_lse)` (score, plan, issue async fetches);
+     c. call `cache.commit(layer, t)`: fetches due by t become visible (GPU-side event wait);
+     d. concatenate `[text K | cache.attention_inputs(layer)]`, build the additive float mask
+        `[0... | bias]`, and run SDPA with it.
+   With `lookahead=1` (default), a fetch issued in (b) at step t is committed in (c) at t+1.
 3. Correctness gate: with `slot_capacity >= R` and every region resident, the outputs must
    match full KV to within bf16 tolerance (test on the server: tests/gpu/test_hf_equivalence.py).
 

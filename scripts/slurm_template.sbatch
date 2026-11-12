@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SLURM variant of scripts/launch.sh. Adjust partition/account to the cluster.
-#   sbatch --export=ALL,CFG=experiments/E000-env-smoke/config.yaml scripts/slurm_template.sbatch
+#   sbatch --export=ALL,CFG=experiments/E000-env-smoke/config.gate.yaml scripts/slurm_template.sbatch
 #SBATCH --job-name=cuekeep
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8

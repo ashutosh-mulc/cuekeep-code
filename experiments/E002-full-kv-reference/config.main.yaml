@@ -1,0 +1,11 @@
+# Main tier: full benchmarks, 3 seeds. Held until gate G6 is passed, and until the human has
+# approved the GPU-hour estimate written by the gate run.
+extends:
+  - experiments/E002-full-kv-reference/config.gate.yaml
+
+tier: main
+requires_gates: [G6]
+seeds: [0, 1, 2]
+eval:
+  split: {role: all, dev_size: 150}     # report the full benchmark, and the test split alone
+gate: null

@@ -1,0 +1,16 @@
+# ARS experiment_provenance[] entry. Update `executed`, `result_file` and the negative results as runs land.
+# Only main-tier results back paper claims; gate-tier results decide go / no-go and are listed for the record.
+experiment_id: "E006"
+title: "Accuracy vs visual-KV memory"
+description: "Free-running accuracy, trace length, response time and visual-KV memory of CueKeep against full KV and baselines at matched budgets. A dev-split pilot (G7) precedes the full 3-seed main tier."
+repro_lock: null
+repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E006-accuracy-memory-tradeoff/<timestamp>/."
+planned_vs_executed:
+  - planned: "Pilot tier (G7): accuracy, trace length and visual-KV bytes for full KV, CueKeep and prune-once at a 25% budget on 150 dev samples of 2 benchmarks, 1 seed"
+    executed: false
+    skip_reason: "not yet run; held by gates G3, G4, G6"
+  - planned: "Main tier: accuracy vs visual-KV bytes across budgets, all baselines, full suite, seeds {0,1,2}, with total response time and PCIe bytes per token"
+    executed: false
+    skip_reason: "not yet run; held by gate G7"
+negative_results: []
+known_limitations: []

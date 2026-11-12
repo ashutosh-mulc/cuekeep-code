@@ -1,0 +1,6 @@
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+tier: gate
+requires_gates: [G0]        # gates that must be passed before this run may start
+# Set the gate's (small) sample and knobs here.

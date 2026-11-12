@@ -1,0 +1,6 @@
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+tier: main
+requires_gates: []          # this experiment's own gate, plus any others it depends on
+# Set the full-size sample and knobs here.

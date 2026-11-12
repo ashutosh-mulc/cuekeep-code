@@ -1,0 +1,10 @@
+# Main tier: paper-grade fidelity numbers on the main dump (30 + 30 test samples, 13 layers).
+# Held until gate G2 is passed.
+extends:
+  - experiments/E001-pooled-attention-fidelity/config.gate.yaml
+
+tier: main
+requires_gates: [G2]
+gate: null                    # no verdict on the main tier
+sweep:
+  oracle_max_regions: 512

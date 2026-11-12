@@ -3,12 +3,23 @@
 Research repo: **pooled-KV paging for visual tokens in thinking VLMs** (Qwen3-VL-Thinking), targeting
 ICML 2027. Start with `research/overview.md` and `research/method.md`.
 
+## On the GPU server
+
+Work through [SERVER_CHECKLIST.md](SERVER_CHECKLIST.md) in order, ticking items in that file as you
+go. It lists the stop conditions and the decisions that need the human.
+
 ## Where things go
 
 - **Code runs on a remote NVIDIA GPU server, not this laptop.** Library code must import without
   CUDA. GPU-only paths are guarded with `torch.cuda.is_available()`, and the `transformers` imports
   are lazy. Only the math in `src/cuekeep/cache/pooling.py`, the paging bookkeeping and the
   tracking code are tested locally.
+- **Experiments are staged.** Small gates on fixed dev-split samples hold back the main tiers
+  (`research/experiment_design.md`, ledger `experiments/gates.yaml`). `scripts/run.py` refuses a config
+  whose `requires_gates` have not passed. Decide a gate only from its pre-registered criteria, record
+  it with `scripts/gate.py`, and treat a failed gate as a result. Only the human waives a gate or
+  changes a threshold. Tune only on the dev split. The general pattern, with templates, is the
+  user-level `staged-experiments` skill; use it when designing any new experiment here.
 - New experiment: `python scripts/new_experiment.py "title"`, then fill in the **pre-registration
   before running**. Never edit a pre-registration after results exist. Add to Results/Conclusion
   instead.

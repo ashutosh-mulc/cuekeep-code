@@ -1,0 +1,13 @@
+# Main tier: the paper's accuracy vs visual-KV curves. Held until gate G7 is passed.
+extends:
+  - experiments/E006-accuracy-memory-tradeoff/config.pilot.yaml
+
+tier: main
+requires_gates: [G3, G4, G6, G7]
+seeds: [0, 1, 2]
+eval:
+  benchmarks: [MathVista_MINI, MathVerse_MINI, MMMU_DEV_VAL, HRBench4K, VStarBench, ScreenSpot_Pro]
+  split: {role: all, dev_size: 150}
+methods: [full_kv, cuekeep, fastv, pdrop, quest_regions, shadowkv_style, visionpulse, dstp, snapkv, random_regions]
+budgets: [0.10, 0.25, 0.50]
+gate: null

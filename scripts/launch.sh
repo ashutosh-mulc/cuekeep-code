@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launch an experiment detached on the GPU server, pinned to chosen GPUs, with logs captured.
-#   GPUS=0 bash scripts/launch.sh experiments/E000-env-smoke/config.yaml [key=value ...] [--tag t]
+#   GPUS=0 bash scripts/launch.sh experiments/E000-env-smoke/config.gate.yaml [key=value ...] [--tag t]
 # For a SLURM cluster use scripts/slurm_template.sbatch instead.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

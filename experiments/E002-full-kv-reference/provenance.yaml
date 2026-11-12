@@ -1,15 +1,16 @@
-# ARS Material Passport `experiment_provenance[]` entry (schema: ARS shared/contracts/passport/experiment_provenance_entry.schema.json).
-# Exported with `python scripts/export_provenance.py`. Keep it honest: ARS integrity gates check claims against it.
+# ARS experiment_provenance[] entry. Update `executed`, `result_file` and the negative results as runs land.
+# Only main-tier results back paper claims; gate-tier results decide go / no-go and are listed for the record.
 experiment_id: "E002"
 title: "Full-KV reference on the thinking suite"
-description: ""
-# GPU experiments are not ARS/LLM sessions, so the ARS repro_lock does not apply. Our configuration trail is
-# runs/<id>/<ts>/{config.yaml,meta.json,env.json}.
+description: "Full-KV accuracy, trace length, response time and memory of Qwen3-VL-4B-Thinking through VLMEvalKit. A 150-per-benchmark dev-split gate (G6) checks the harness before the full 3-seed main tier."
 repro_lock: null
-repro_lock_reason: "GPU experiment run outside ARS, with no ARS prompts to hash. Config, git SHA and environment (torch/transformers/CUDA/GPU) are recorded per run in runs/E002/<timestamp>/."
+repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E002-full-kv-reference/<timestamp>/."
 planned_vs_executed:
-  - planned: "Accuracy, mean trace length, total response time, ms/token and peak GPU memory of Qwen3-VL-4B-Thinking with full KV on each benchmark in configs/eval/thinking_suite.yaml"
+  - planned: "Gate tier (G6): accuracy, trace length and truncation rate on 150 dev samples per benchmark, 1 seed, against official scores"
     executed: false
     skip_reason: "not yet run"
+  - planned: "Main tier: accuracy, mean trace length, total response time, decode ms/token and memory on each full benchmark, mean and std over base seeds {0,1,2}; also reported on the test split alone"
+    executed: false
+    skip_reason: "not yet run; held by gate G6 and cost approval"
 negative_results: []
 known_limitations: []

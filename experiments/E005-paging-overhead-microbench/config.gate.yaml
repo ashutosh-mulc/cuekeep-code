@@ -1,0 +1,31 @@
+# Gate G5: paging overhead per decode step. No dataset. Needs E000's measured decode ms/token:
+#   python scripts/run.py experiments/E005-paging-overhead-microbench/config.gate.yaml bench.baseline_decode_ms_per_token=<ms>
+extends:
+  - configs/base.yaml
+
+tier: gate
+requires_gates: [G1]
+allow_cpu: true               # a CPU run only checks that the benchmark executes; the gate needs CUDA
+
+bench:
+  kv_heads: 8                 # Qwen3-VL-4B text config (checked 2026-11-12)
+  heads: 32
+  head_dim: 128
+  paged_layers: 34            # layers_paged "2:" of 36
+  visual_tokens: [1024, 4096, 8100]
+  region_size: [2, 4]
+  refresh_every: [1, 2, 4]
+  budget: 0.25                # slot capacity as a fraction of regions
+  fetch_budget: 2
+  lookahead: 1
+  min_residency: 4
+  warmup_steps: 20
+  steps: 200
+  baseline_decode_ms_per_token: null    # from E000 summary: <dataset>/mean_decode_ms_per_token
+
+gate:
+  visual_tokens: 4096
+  region_size: 4
+  max_refresh_every: 4
+  max_overhead_frac: 0.15     # paging adds ≤ 15% to a full-KV decode step
+  max_commit_frac: 0.05       # waiting for fetches adds ≤ 5% (lookahead hides the copy)

@@ -1,3 +1,3 @@
-from .metrics import GenerationRecord, Summary, cuda_peak_memory, wall_timer
+from .metrics import GenerationRecord, PhaseTracker, Summary, cuda_peak_memory, wall_timer
 
-__all__ = ["GenerationRecord", "Summary", "cuda_peak_memory", "wall_timer"]
+__all__ = ["GenerationRecord", "PhaseTracker", "Summary", "cuda_peak_memory", "wall_timer"]

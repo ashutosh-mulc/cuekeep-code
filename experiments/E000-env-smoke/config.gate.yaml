@@ -1,0 +1,22 @@
+# Gate G1: premise census (research/experiment_design.md).
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+
+tier: gate
+requires_gates: [G0]
+
+model:
+  max_new_tokens: 16384     # smoke budget; if any sample truncates, rerun with model.max_new_tokens=40960
+
+datasets:
+  # The first 20 of each dataset's fixed dev split (nested inside every later gate's sample).
+  - {name: mme, split: test, role: dev, dev_size: 150, limit: 20}
+  # Source, field names and box format are unverified; pin them on the first run (see README).
+  - {name: screenspot_pro, hf_id: Voxel51/ScreenSpot-Pro, split: train, role: dev, dev_size: 150, limit: 20,
+     bbox_format: null, bbox_units: null, question_field: null, bbox_field: null}
+
+gate:
+  min_median_trace_tokens: 300        # on at least one dataset: traces are long enough for a decode-time method
+  visual_dataset: screenspot_pro
+  min_median_visual_frac: 0.50        # visual tokens / prompt tokens on the high-resolution dataset

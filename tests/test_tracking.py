@@ -8,7 +8,7 @@ from cuekeep.tracking import REPO_ROOT, Run, load_config  # noqa: E402
 
 
 def test_extends_and_overrides():
-    cfg = load_config(REPO_ROOT / "experiments/E001-pooled-attention-fidelity/config.yaml",
+    cfg = load_config(REPO_ROOT / "experiments/E001-pooled-attention-fidelity/config.synthetic.yaml",
                       ["sweep.top_b=4", "model.dtype=float16"])
     assert cfg["model"]["id"] == "Qwen/Qwen3-VL-4B-Thinking"     # inherited
     assert cfg["seed"] == 0                                       # from base
@@ -16,12 +16,29 @@ def test_extends_and_overrides():
 
 
 def test_every_experiment_config_resolves_and_has_provenance():
-    for cfg_path in sorted((REPO_ROOT / "experiments").glob("E[0-9][0-9][0-9]-*/config.yaml")):
-        load_config(cfg_path)
+    from cuekeep.tracking import load_gates
+    gates = load_gates()
+    configs = sorted((REPO_ROOT / "experiments").glob("E[0-9][0-9][0-9]-*/config.*.yaml"))
+    assert len(configs) >= 10
+    for cfg_path in configs:
+        cfg = load_config(cfg_path)
+        assert cfg["tier"] == cfg_path.name.split(".")[1]                 # config.<tier>.yaml
+        for g in cfg.get("requires_gates") or []:
+            assert g in gates, f"{cfg_path}: unknown gate {g}"
         prov = yaml.safe_load((cfg_path.parent / "provenance.yaml").read_text())
         assert prov["experiment_id"] == cfg_path.parent.name.split("-")[0]
         for key in ("planned_vs_executed", "negative_results", "known_limitations"):
             assert key in prov
+
+
+def test_main_tiers_are_held_by_their_own_gate():
+    from cuekeep.tracking import load_gates
+    gates = load_gates()
+    own = {g["experiment"]: gid for gid, g in gates.items() if g.get("experiment")}
+    mains = sorted((REPO_ROOT / "experiments").glob("E[0-9][0-9][0-9]-*/config.main.yaml"))
+    assert mains
+    for cfg_path in mains:
+        assert own[cfg_path.parent.name] in load_config(cfg_path)["requires_gates"], cfg_path
 
 
 def test_run_dir_records_config_meta_metrics(tmp_path):

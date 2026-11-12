@@ -1,0 +1,13 @@
+# ARS experiment_provenance[] entry. Update `executed`, `result_file` and the negative results as runs land.
+# Only main-tier results back paper claims; gate-tier results decide go / no-go and are listed for the record.
+experiment_id: "E004"
+title: "Paging fidelity under teacher forcing"
+description: "Replays full-KV traces through a masked simulation of paging and measures next-token KL and top-1 agreement against full KV, for CueKeep, oracle paging, prune-once, random regions and stand-ins only, at matched visual budgets."
+repro_lock: null
+repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E004-teacher-forced-paging-fidelity/<timestamp>/."
+planned_vs_executed:
+  - planned: "Gate tier (G4): equivalence at 100% budget; KL and top-1 agreement at 10% and 25% budgets for each condition on 16 ScreenSpot-Pro + 16 MathVista dev samples"
+    executed: false
+    skip_reason: "not yet run; held by gates G2 and G3"
+negative_results: []
+known_limitations: []

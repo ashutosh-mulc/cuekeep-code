@@ -4,4 +4,6 @@ model:
   dtype: bfloat16
   attn_implementation: sdpa    # eager for attention dumps; sdpa for timing
   device_map: cuda:0
-  max_new_tokens: 8192         # thinking traces are long; E000 measures the real distribution
+  # Model card (checked 2026-11-12): sampling with temperature 1.0, top_p 0.95, top_k 20; out_seq_length 40960.
+  decoding: model_default      # model_default (use the model's generation_config) | greedy (debug only)
+  max_new_tokens: 40960

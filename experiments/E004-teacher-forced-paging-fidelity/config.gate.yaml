@@ -1,0 +1,25 @@
+# Gate G4: paging fidelity under teacher forcing (masked simulation). Held until G2 and G3 pass.
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+  - configs/method/cuekeep_v0.yaml
+
+tier: gate
+requires_gates: [G2, G3]
+
+datasets:
+  - {name: screenspot_pro, role: dev, dev_size: 150, limit: 16}     # copy the pinned source fields from E000
+  - {name: mathvista, role: dev, dev_size: 150, limit: 16}
+trace_tokens: 4096            # replay the first 4,096 generated tokens of each full-KV trace
+
+sweep:
+  region_size: [2, 4]
+  budgets: [0.10, 0.25, 1.0]  # 1.0 is the equivalence check
+  conditions: [cuekeep, oracle, prune_once, random_regions, standins_only]
+
+gate:
+  equivalence_min_top1: 0.999
+  equivalence_max_kl: 0.001
+  budget: 0.25
+  max_kl_ratio_vs_prune_once: 0.5
+  min_top1: 0.95

@@ -1,0 +1,16 @@
+# ARS experiment_provenance[] entry. Update `executed`, `result_file` and the negative results as runs land.
+# Only main-tier results back paper claims; gate-tier results decide go / no-go and are listed for the record.
+experiment_id: "E003"
+title: "Attention shift during decoding"
+description: "Measures whether the image regions that a thinking trace attends to change during decoding: coverage of visual attention mass by a static region set, a lagged set and an oracle dynamic set, from exact per-step region attention."
+repro_lock: null
+repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E003-attention-shift/<timestamp>/."
+planned_vs_executed:
+  - planned: "Gate tier (G3): static vs lagged vs dynamic coverage at 5/10/25% region budgets on the gate dump (8 + 8 dev samples x 6 layers; dense windows for 2 + 2 samples)"
+    executed: false
+    skip_reason: "not yet run"
+  - planned: "Main tier: the same on the main dump (30 + 30 test samples x 13 layers), by layer and trace position"
+    executed: false
+    skip_reason: "not yet run; held by gate G3"
+negative_results: []
+known_limitations: []

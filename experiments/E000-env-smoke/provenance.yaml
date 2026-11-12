@@ -1,14 +1,12 @@
-# ARS Material Passport `experiment_provenance[]` entry (schema: ARS shared/contracts/passport/experiment_provenance_entry.schema.json).
-# Exported with `python scripts/export_provenance.py`. Keep it honest: ARS integrity gates check claims against it.
+# ARS experiment_provenance[] entry. Update `executed`, `result_file` and the negative results as runs land.
+# Only main-tier results back paper claims; gate-tier results decide go / no-go and are listed for the record.
 experiment_id: "E000"
-title: "Server environment smoke test + trace-length census"
-description: ""
-# GPU experiments are not ARS/LLM sessions, so the ARS repro_lock does not apply. Our configuration trail is
-# runs/<id>/<ts>/{config.yaml,meta.json,env.json}.
+title: "Environment smoke test + premise census (gate G1)"
+description: "Loads Qwen3-VL-4B-Thinking on the GPU server and measures, on 20 MME and 20 ScreenSpot-Pro dev samples, thinking-trace length, visual-token share, per-phase time and memory, and the KV byte breakdown. Decides gate G1."
 repro_lock: null
-repro_lock_reason: "GPU experiment run outside ARS, with no ARS prompts to hash. Config, git SHA and environment (torch/transformers/CUDA/GPU) are recorded per run in runs/E000/<timestamp>/."
+repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E000-env-smoke/<timestamp>/."
 planned_vs_executed:
-  - planned: "Trace length, visual-token count, peak memory and ms/token for Qwen3-VL-4B-Thinking on 20 MME + 20 ScreenSpot-Pro samples (full KV)"
+  - planned: "Gate tier (G1): trace length, visual-token share, prefill/decode time, decode-phase peak memory and KV byte breakdown on 20 MME + 20 ScreenSpot-Pro dev samples (full KV)"
     executed: false
     skip_reason: "not yet run"
 negative_results: []

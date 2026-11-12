@@ -1,0 +1,6 @@
+# Main tier: the attention-shift figure, on the main dump. Held until gate G3 is passed.
+extends:
+  - experiments/E003-attention-shift/config.gate.yaml
+tier: main
+requires_gates: [G3]
+gate: null

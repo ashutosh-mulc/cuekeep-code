@@ -1,0 +1,19 @@
+# Gate G3: attention shift, on the gate dump (shared with E001's gate).
+#   python scripts/run.py experiments/E003-attention-shift/config.gate.yaml dump_path=<gate dump dir>
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+
+tier: gate
+requires_gates: [G1]
+dump_path: null
+region_size: [2, 4, 8]
+budgets: [0.05, 0.10, 0.25]
+warmup_frac: 0.05             # the static set is chosen from the first 5% of sampled steps
+
+gate:
+  region_size: 4
+  budget: 0.10
+  min_gap: 0.10               # pass: median (dynamic − static) coverage ≥ 0.10 on at least one dataset
+  kill_gap: 0.05              # below this on every dataset: recall has no edge over pruning once → human
+  max_lag1_gap: 0.05          # on dense windows, 1-step-lagged coverage within 0.05 of dynamic

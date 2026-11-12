@@ -2,11 +2,15 @@
 method:
   name: cuekeep
   region_size: 4          # g: g×g merged tokens per region
-  cov_rank: 4             # r: low-rank covariance factor for the demand score (0 = plain pooled logit)
+  cov_rank: 0             # r: low-rank key-covariance factor (0 = plain pooled logit). Stays 0 until E001
+                          #    shows the correction helps on real keys (it hurt at large logit scales, review 2026-11-12)
+  cov_mode: capped        # none | quadratic | capped (only used when cov_rank > 0)
   slot_capacity: 16       # C: hard cap on regions resident with exact KV
   fetch_budget: 2         # B: max regions fetched per refresh
   refresh_every: 1        # k: decode steps between re-scoring
+  lookahead: 1            # fetch decided at step t becomes visible at t+lookahead (0 = synchronous)
   layers_paged: "2:"      # python slice over decoder layers
-  score_agg: max          # max | mean over heads and queries
+  score_agg: max          # max | mean over (head, query) of per-head-normalised log shares
   ema_decay: 0.9
   min_residency: 4
+  admit_margin: 0.0       # newcomer's log share must beat the victim's by this much

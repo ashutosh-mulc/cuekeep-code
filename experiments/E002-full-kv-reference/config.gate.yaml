@@ -1,0 +1,16 @@
+# Gate G6: does our harness reproduce the model? Dev split, 150 per benchmark, 1 seed.
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+  - configs/method/full_kv.yaml
+  - configs/eval/thinking_suite.yaml
+
+tier: gate
+requires_gates: [G1]
+seeds: [0]
+eval:
+  split: {role: dev, dev_size: 150}     # cuekeep.data.split_indices over each benchmark's row order
+
+gate:
+  max_points_below_official: 8          # no benchmark more than 8 points below its official score
+  max_truncation_rate: 0.05
