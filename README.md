@@ -75,7 +75,9 @@ GPUs. Library code stays importable without a GPU, so the math can be checked on
 
 ## Provenance
 
-This repository replaces `ashutosh-mulc/cuekeep-code`, a fork of the TPRL codebase
-(Cao et al., *Language-Guided Token Compression with RL in LVLMs*, arXiv 2603.13394). The few
+This repository is hosted at `ashutosh-mulc/cuekeep-code` (private). On 2026-11-15 it replaced
+that repo's `main`, which was a fork of the TPRL codebase
+(Cao et al., *Language-Guided Token Compression with RL in LVLMs*, arXiv 2603.13394). The fork is
+kept on the `archive/tprl` branch at `6617257` and is not developed further. The few
 modules carried over are listed in [third_party/README.md](third_party/README.md), and the reasons
 are recorded in [research/decisions/0003-port-from-tprl.md](research/decisions/0003-port-from-tprl.md).

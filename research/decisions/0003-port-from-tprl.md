@@ -24,3 +24,10 @@ relevant to a training-free decode-time method. The old repo stays available for
 ## Consequences
 The old git history is not carried over. The attribution to TPRL remains in
 [third_party/README.md](../../third_party/README.md).
+
+## Update 2026-11-15: hosting
+This repo now lives in `ashutosh-mulc/cuekeep-code`. Its history was force-pushed over that repo's
+`main`. The TPRL fork's old `main` (`6617257`, the pinned commit above) is kept on the branch
+`archive/tprl`, so the reference copy stays available. The branch `research/cuekeep` (`9585ad2`:
+the earlier Gate 0 scripts `vlm2_native.py`, `run_gate0.sh`, `RUN.md` and `TODO.md`, built on top of
+the TPRL fork) was left as it is. `cuekeep-lab` refers to it, and none of those files are in this repo.
