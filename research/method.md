@@ -1,6 +1,6 @@
 # Method: pooled-KV paging
 
-_Last updated: 2026-11-12 (after code review, see [decisions/0004](decisions/0004-review-fixes-scoring-memory-fetch.md)) · Status: draft, to be verified against the original design notes_
+_Last updated: 2026-11-16 (after code review, see [decisions/0004](decisions/0004-review-fixes-scoring-memory-fetch.md)) · Status: draft, to be verified against the original design notes_
 
 ## Notation
 
@@ -87,6 +87,14 @@ this directly (`benefit/*`) on real keys (Q10).
   `admit_margin` (both sides on the same scale; review 2026-11-12).
 - Host layout: exact KV is stored token-major and grouped by region (`[n, kvh, d]`, pinned), so a
   fetch is one contiguous slice: no gather, no re-pinning.
+- **Batched decisions (G5 round 1):** during decode step t each paged layer queues its query; after
+  the step, one batched call scores every layer's regions, with one host sync, and plans and issues
+  fetches. Scoring happens every `refresh_every` steps. Evictions take effect from step t + 1 and
+  fetches from t + `lookahead`.
+- **Prefill fill:** at the end of prefill, all C slots are filled from the last prompt query's scores
+  (`prefill_fill`), so decoding starts with a full pool.
+- **Persistent buffers:** each layer's visual K/V live in one device buffer (pooled rows, then slots),
+  with a matching bias vector. Fetches, commits and evictions update them in place, so attention reads views.
 - **Fetch/commit protocol:** each fetch is an async H2D copy on a side stream that first waits for
   the compute already queued, so a reused slot is never overwritten while an earlier attention still
   reads it. A fetch stays *pending*, and attention keeps using the stand-in, until `commit` at step

@@ -1,11 +1,25 @@
-# Main tier: full benchmarks, 3 seeds. Held until gate G6 is passed, and until the human has
-# approved the GPU-hour estimate written by the gate run.
+# Main tier: the full benchmarks, 3 seeds. Held until gate G6 is passed, and until the human has
+# approved the GPU-hour estimate the gate run writes (summary: main_tier_gpu_hours_estimate).
 extends:
   - experiments/E002-full-kv-reference/config.gate.yaml
 
 tier: main
 requires_gates: [G6]
 seeds: [0, 1, 2]
-eval:
-  split: {role: all, dev_size: 150}     # report the full benchmark, and the test split alone
+benchmarks:
+  - name: mathvista
+    split: testmini
+    role: all
+    dev_size: 150
+    full_size: 1000
+    official: 79.5
+  - name: screenspot_pro
+    source_annotations: local
+    annotations_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/annotations
+    images_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/images
+    prompt: gui_click
+    role: all
+    dev_size: 150
+    full_size: 1581
+    official: 49.2
 gate: null

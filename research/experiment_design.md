@@ -1,6 +1,6 @@
 # Experiment design: staged gates
 
-_Last updated: 2026-11-12 · Decision record: [decisions/0005](decisions/0005-staged-gates.md) · Ledger: [experiments/gates.yaml](../experiments/gates.yaml)_
+_Last updated: 2026-11-16 · Decision record: [decisions/0005](decisions/0005-staged-gates.md) · Ledger: [experiments/gates.yaml](../experiments/gates.yaml)_
 
 ## Principles
 
@@ -32,7 +32,7 @@ needs the human and an entry in the decision log.
 | **G3** Attention shift | The regions a trace needs change during decoding (H2) | [E003](../experiments/E003-attention-shift/) gate tier, same gate dump | At a 10% region budget and g = 4, median (dynamic − static) coverage ≥ 0.10 on ≥ 1 dataset; on the dense windows, 1-step-lagged coverage within 0.05 of dynamic | Gap < 0.05 on both datasets: (human). Recall then has no edge over pruning once, and the project needs redirecting. Gap 0.05–0.10: (human) | E003 main, G7 |
 | **G4** Paging fidelity | Paging keeps next-token predictions close to full KV, and closer than pruning | [E004](../experiments/E004-teacher-forced-paging-fidelity/): 16 ScreenSpot-Pro + 16 MathVista (dev), full-KV trace replayed (first 4,096 tokens), masked simulation | (1) at 100% budget: top-1 agreement ≥ 0.999 and KL ≤ 1e-3; (2) at 25% budget: CueKeep's median KL ≤ 0.5 × prune-once KL on ≥ 1 dataset and not worse on the other; (3) CueKeep top-1 agreement ≥ 0.95 at 25% | (1): the hook is wrong; fix it. (2): (human), no fidelity edge over pruning. (3) alone: tune g and budget on dev, then (human) | G7, real offload build |
 | **G5** Overhead | Scoring, commit and fetch are cheap next to a decode step | [E005](../experiments/E005-paging-overhead-microbench/): no dataset; real model shapes; G1's decode ms/token | Per-step paging overhead ≤ 15% of the full-KV decode step at `refresh_every` ≤ 4; commit wait ≤ 5% of the step with `lookahead: 1` | Optimise (batch scoring across layers, remove the per-layer host sync, share decisions across layers), then rerun | Real offload build |
-| **G6** Reference sanity | Our harness reproduces the model | [E002](../experiments/E002-full-kv-reference/) gate tier: 150 per benchmark (dev), 1 seed | Every benchmark runs; none more than 8 points below its official score; truncation < 5%; GPU-hour estimate for the main tier written down | Fix prompting or answer extraction; rerun | E002 main, G7 |
+| **G6** Reference sanity | Our harness reproduces the model | [E002](../experiments/E002-full-kv-reference/) gate tier: MathVista-mini + ScreenSpot-Pro, 150 each (dev), 1 seed, in-repo harness with rule-based scoring (decisions/0006) | Both run; neither more than 8 points below its official score (79.5 / 49.2); truncation < 5%; GPU-hour estimate for the main tier computed | Fix prompting or answer extraction; rerun | E002 main, G7 |
 | **G7** Accuracy pilot | Free-running accuracy does not collapse under paging | [E006](../experiments/E006-accuracy-memory-tradeoff/) pilot tier: 150 × 2 benchmarks (dev), 1 seed; full KV, CueKeep, prune-once | CueKeep at 25% budget within 4 points of full KV on both benchmarks, and no more than 2 points below prune-once at the matched budget | (human). Check trace lengths first (longer traces can hide or cause the drop) | E006 main, baseline implementations |
 
 At n = 150, one accuracy number has a standard error of about 4 points. G6 and G7 therefore catch
@@ -56,10 +56,10 @@ G0 ──► G1 ──┬──► [gate dump: one capture] ──┬──► G
 
 | Work | Held until | Why |
 |---|---|---|
-| Masked-simulation attention hook (stand-ins and residency through masks, all KV on the GPU) | G2 and G3 passed | It is only needed if stand-ins work and attention shifts |
+| Masked-simulation attention hook (stand-ins and residency through masks, all KV on the GPU) | Runs held by G2 and G3; code built ahead on 2026-11-16 (decisions/0006: the server runs once a day) | It is only needed if stand-ins work and attention shifts |
 | Real offload (pinned host store, async fetch, physical deletion from the HF cache) | G4 and G5 passed | Building the systems path is only worthwhile once paging is accurate in simulation and cheap per step |
 | Baselines (FastV, PDrop, Quest, ShadowKV-style, VisionPulse-style, DSTP-style, SnapKV) | G7 passed | Prune-once is needed for G4 and G7; the rest are needed only for the main tables |
-| VLMEvalKit wrapper | G1 passed | G6 needs it |
+| Reference harness for G6 | G1 passed | Built 2026-11-16 in-repo (decisions/0006), instead of VLMEvalKit |
 
 ## Main experiments
 

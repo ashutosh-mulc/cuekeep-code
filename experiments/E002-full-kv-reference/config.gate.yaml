@@ -1,15 +1,35 @@
 # Gate G6: does our harness reproduce the model? Dev split, 150 per benchmark, 1 seed.
+#   GPUS=0 bash scripts/launch.sh experiments/E002-full-kv-reference/config.gate.yaml
+# In-repo harness with rule-based scoring (decisions/0006, 2026-11-16, before any run).
 extends:
   - configs/base.yaml
   - configs/model/qwen3_vl_4b_thinking.yaml
   - configs/method/full_kv.yaml
-  - configs/eval/thinking_suite.yaml
 
 tier: gate
 requires_gates: [G1]
 seeds: [0]
-eval:
-  split: {role: dev, dev_size: 150}     # cuekeep.data.split_indices over each benchmark's row order
+main_seeds: [0, 1, 2]         # used only for the main-tier cost estimate
+
+benchmarks:
+  # official: Qwen3-VL-4B-Thinking, model card table (qwen3vl_4b_8b_vl_thinking.jpg, read 2026-11-16)
+  - name: mathvista
+    split: testmini
+    role: dev
+    dev_size: 150
+    limit: 150
+    full_size: 1000
+    official: 79.5
+  - name: screenspot_pro
+    source_annotations: local
+    annotations_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/annotations
+    images_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/images
+    prompt: gui_click
+    role: dev
+    dev_size: 150
+    limit: 150
+    full_size: 1581
+    official: 49.2
 
 gate:
   max_points_below_official: 8          # no benchmark more than 8 points below its official score

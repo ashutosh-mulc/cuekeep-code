@@ -2,14 +2,14 @@
 # Only main-tier results back paper claims; gate-tier results decide go / no-go and are listed for the record.
 experiment_id: "E002"
 title: "Full-KV reference on the thinking suite"
-description: "Full-KV accuracy, trace length, response time and memory of Qwen3-VL-4B-Thinking through VLMEvalKit. A 150-per-benchmark dev-split gate (G6) checks the harness before the full 3-seed main tier."
+description: "Full-KV accuracy, trace length, response time and memory of Qwen3-VL-4B-Thinking on MathVista-mini and ScreenSpot-Pro, through an in-repo harness with rule-based scoring. A 150-per-benchmark dev-split gate (G6) checks the harness against the official scores before the full 3-seed main tier."
 repro_lock: null
 repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E002-full-kv-reference/<timestamp>/."
 planned_vs_executed:
-  - planned: "Gate tier (G6): accuracy, trace length and truncation rate on 150 dev samples per benchmark, 1 seed, against official scores"
+  - planned: "Gate tier (G6): accuracy, trace length and truncation rate on 150 dev samples each of MathVista-mini and ScreenSpot-Pro, 1 seed, against the official scores (79.5, 49.2)"
     executed: false
     skip_reason: "not yet run"
-  - planned: "Main tier: accuracy, mean trace length, total response time, decode ms/token and memory on each full benchmark, mean and std over base seeds {0,1,2}; also reported on the test split alone"
+  - planned: "Main tier: accuracy, mean trace length, total response time, decode ms/token and memory on full MathVista testmini (1,000) and ScreenSpot-Pro (1,581), mean and std over base seeds {0,1,2}; also reported on the test split alone"
     executed: false
     skip_reason: "not yet run; held by gate G6 and cost approval"
 negative_results: []

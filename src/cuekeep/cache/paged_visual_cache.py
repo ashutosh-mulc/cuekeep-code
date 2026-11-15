@@ -1,8 +1,10 @@
 """PagedVisualCache: GPU-resident pooled stand-ins + capped slot pool + pinned host store.
 
-Status (2026-11-12): storage, paging policy, the fetch/commit protocol and attention-input assembly
-are implemented and unit-tested on CPU. The CUDA stream/event path is written but not yet run on a
-GPU. The hookup to HF transformers 5.x attention is in `hf_adapter.py` (stub, roadmap M1).
+Status (2026-11-16): storage, paging policy, the fetch/commit protocol and attention-input assembly
+are implemented and tested on CPU, MPS and (on the server) CUDA. G5 round 1 changes: persistent
+device buffers (attention inputs are views; no per-step concatenation) and batched scoring across
+layers (`queue_query` + `end_step`: one host sync per refresh instead of one per layer). The hookup
+to HF transformers attention is in `hf_adapter.py` (stub).
 
 How this maps onto HF attention
 -------------------------------
@@ -67,25 +69,40 @@ class SlotPool:
     admit_margin: float = 0.0
     region_to_slot: Dict[int, int] = field(default_factory=dict)
     fetched_at: Dict[int, int] = field(default_factory=dict)
-    ema: Optional[Tensor] = None
+    ema: Optional[List[float]] = None
 
     def free_slots(self) -> List[int]:
         used = set(self.region_to_slot.values())
         return [s for s in range(self.capacity) if s not in used]
 
     def plan(self, scores: Tensor, step: int) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
-        """scores: [R]. Returns (fetches as (region, slot), evictions as (region, slot))."""
-        scores = scores.detach().float().cpu()
-        self.ema = scores.clone() if self.ema is None else self.ema_decay * self.ema + (1 - self.ema_decay) * scores
+        """scores: [R]. Returns (fetches as (region, slot), evictions as (region, slot)).
 
-        candidates = [int(r) for r in torch.argsort(scores, descending=True) if int(r) not in self.region_to_slot]
+        Runs on plain Python lists: it is called for every paged layer at every refresh, so
+        element-wise tensor access (one `.item()` per region) would dominate its cost.
+        """
+        s = scores.detach().float().cpu()
+        order = torch.argsort(s, descending=True).tolist()
+        s = s.tolist()
+        if self.ema is None:
+            self.ema = list(s)
+        else:
+            a, b = self.ema_decay, 1 - self.ema_decay
+            self.ema = [a * e + b * x for e, x in zip(self.ema, s)]
+
         fetches: List[Tuple[int, int]] = []
         evictions: List[Tuple[int, int]] = []
         free = self.free_slots()
-        for r in candidates[: self.fetch_budget]:
+        n = 0
+        for r in order:
+            if n >= self.fetch_budget:
+                break
+            if r in self.region_to_slot:
+                continue
+            n += 1
             if not free:
                 victim = self._pick_victim(step)
-                if victim is None or scores[r].item() <= scores[victim].item() + self.admit_margin:
+                if victim is None or s[r] <= s[victim] + self.admit_margin:
                     break                       # candidates are sorted, so no later one can do better
                 slot = self.region_to_slot.pop(victim)
                 self.fetched_at.pop(victim, None)
@@ -101,7 +118,7 @@ class SlotPool:
         evictable = [r for r, t in self.fetched_at.items() if t < step and step - t >= self.min_residency]
         if not evictable:
             return None
-        return min(evictable, key=lambda r: self.ema[r].item())
+        return min(evictable, key=self.ema.__getitem__)
 
     def resident_mask(self, num_regions: int) -> Tensor:
         """Regions holding a slot (committed or pending), as the planner sees them."""
@@ -119,25 +136,56 @@ class PendingFetch:
     slot: int
     length: int
     ready_step: int
-    event: Any = None                     # torch.cuda.Event on CUDA, None on CPU
+    event: Any = None                     # torch.cuda.Event on CUDA, None otherwise
 
 
 @dataclass
 class LayerVisualStore:
-    pooled: PooledRegions                 # on device
+    """Visual KV of one layer.
+
+    Device memory is two persistent buffers, laid out sequence-major: rows [0, R) hold the pooled
+    stand-ins and rows R + j·max_m … hold slot j. `bias` [R + C·max_m] is the matching additive
+    attention bias. Fetches, commits and evictions update these in place, so building the attention
+    inputs costs nothing per step (views only).
+    """
+    pooled: PooledRegions                 # on device (keys/values also live in buf rows [0, R))
     host_k: Tensor                        # [n_vis, kvh, d] CPU, tokens grouped by region; pinned on CUDA
     host_v: Tensor
     region_start: List[int]               # offset of each region in host_k / host_v
     region_len: List[int]
-    slot_k: Tensor                        # [C, max_m, kvh, d] on device
-    slot_v: Tensor
-    slot_len: Tensor                      # [C] valid tokens per slot; 0 while empty or pending
-    committed: Tensor                     # [R] bool on device: exact KV usable by attention
+    buf_k: Tensor                         # [R + C·max_m, kvh, d] on device
+    buf_v: Tensor
+    bias: Tensor                          # [R + C·max_m] float32 on device
+    num_regions: int
+    capacity: int
+    max_m: int
+    committed: Tensor                     # [R] bool, CPU: exact KV usable by attention
+    slot_len: Tensor                      # [C] long, CPU: valid tokens per slot; 0 while empty or pending
     pending: List[PendingFetch] = field(default_factory=list)
+
+    @property
+    def slot_k(self) -> Tensor:           # [C, max_m, kvh, d] view
+        return self.buf_k[self.num_regions:].view(self.capacity, self.max_m, *self.buf_k.shape[1:])
+
+    @property
+    def slot_v(self) -> Tensor:
+        return self.buf_v[self.num_regions:].view(self.capacity, self.max_m, *self.buf_v.shape[1:])
+
+    def slot_rows(self, slot: int) -> slice:
+        a = self.num_regions + slot * self.max_m
+        return slice(a, a + self.max_m)
 
 
 class PagedVisualCache:
     """Per-layer visual KV store. Text KV stays in the HF cache; this class owns only visual KV.
+
+    Two ways to drive it per decode step t:
+    - per layer: `step(layer, q, t, other_lse)` scores and plans that layer immediately;
+    - batched (G5 round 1): `queue_query(layer, q, other_lse)` for every layer during the forward,
+      then `end_step(t)` once: one batched scoring call and one host sync for all layers, every
+      `refresh_every` steps. With `lookahead >= 1` this is the same protocol, since fetches decided
+      at step t are only used from step t + lookahead.
+    In both cases call `commit(layer, t)` before reading `attention_inputs(layer)`.
 
     Multiple images: concatenate their visual K/V in sequence order, build ids with
     `pooling.region_ids_for_spans`, and ingest once per layer.
@@ -150,8 +198,11 @@ class PagedVisualCache:
         self.pools: Dict[int, SlotPool] = {}
         self.bytes_h2d = 0                      # PCIe traffic accounting, for metrics
         self.lookahead = int(cfg.get("lookahead", 1))
+        self.refresh_every = int(cfg.get("refresh_every", 1))
         self._cuda = self.device.type == "cuda"
         self._copy_stream = torch.cuda.Stream(device=self.device) if self._cuda else None
+        self._queued: Dict[int, tuple] = {}
+        self._stacked: Optional[tuple] = None   # (layers, PooledRegions stacked over layers)
 
     # -- prefill ---------------------------------------------------------------------------
     def ingest(self, layer: int, k: Tensor, v: Tensor, region_ids: Tensor) -> None:
@@ -170,13 +221,21 @@ class PagedVisualCache:
         if self._cuda:
             host_k, host_v = host_k.pin_memory(), host_v.pin_memory()
         kvh, _, d = k.shape
-        C, max_m = self.cfg["slot_capacity"], max(lens)
+        C, max_m = int(self.cfg["slot_capacity"]), max(lens)
+        rows = R + C * max_m
+        buf_k = k.new_zeros(rows, kvh, d)
+        buf_v = v.new_zeros(rows, kvh, v.shape[-1])
+        buf_k[:R] = pooled.keys.permute(1, 0, 2)
+        buf_v[:R] = pooled.values.permute(1, 0, 2)
+        bias = torch.full((rows,), float("-inf"), dtype=torch.float32, device=k.device)
+        bias[:R] = pooled.log_m.to(k.device, torch.float32)
+        # The pooled table lives in the buffer rows; keep PooledRegions as views (no duplicate memory).
+        pooled = PooledRegions(buf_k[:R].permute(1, 0, 2), buf_v[:R].permute(1, 0, 2), pooled.counts,
+                               pooled.log_m, pooled.cov_basis)
         self.layers[layer] = LayerVisualStore(
             pooled=pooled, host_k=host_k, host_v=host_v, region_start=starts, region_len=lens,
-            slot_k=k.new_zeros(C, max_m, kvh, d),
-            slot_v=v.new_zeros(C, max_m, kvh, v.shape[-1]),
-            slot_len=torch.zeros(C, dtype=torch.long, device=k.device),
-            committed=torch.zeros(R, dtype=torch.bool, device=k.device),
+            buf_k=buf_k, buf_v=buf_v, bias=bias, num_regions=R, capacity=C, max_m=max_m,
+            committed=torch.zeros(R, dtype=torch.bool), slot_len=torch.zeros(C, dtype=torch.long),
         )
         self.pools[layer] = SlotPool(
             capacity=C,
@@ -185,8 +244,16 @@ class PagedVisualCache:
             min_residency=self.cfg.get("min_residency", 4),
             admit_margin=self.cfg.get("admit_margin", 0.0),
         )
+        self._stacked = None
 
-    # -- decode ----------------------------------------------------------------------------
+    # -- scoring ---------------------------------------------------------------------------
+    def _aggregate(self, shares: Tensor) -> Tensor:
+        """[..., Q, R] per-(head, query) log shares → [..., R] (max, or log of the mean share)."""
+        flat = shares.reshape(*shares.shape[:-3], -1, shares.shape[-1])
+        if self.cfg.get("score_agg", "max") == "max":
+            return flat.amax(-2)
+        return torch.logsumexp(flat, -2) - math.log(flat.shape[-2])
+
     def region_scores(self, layer: int, q: Tensor, other_lse: Optional[Tensor] = None) -> Tensor:
         """Aggregated per-region log share [R] for queries q [heads, nq, d].
 
@@ -202,20 +269,65 @@ class PagedVisualCache:
         qg = q.reshape(kvh, grp * nq, d)                    # GQA: query head h uses KV head h // grp
         lse = other_lse.reshape(kvh, grp * nq) if other_lse is not None else None
         s = demand_scores(qg, st.pooled, scale=d ** -0.5, cov_mode=self.cfg.get("cov_mode", "capped"))
-        shares = region_log_shares(s, lse)                  # [kvh, grp*nq, R]
-        flat = shares.reshape(-1, shares.shape[-1])
-        if self.cfg.get("score_agg", "max") == "max":
-            return flat.amax(0)
-        return torch.logsumexp(flat, 0) - math.log(flat.shape[0])     # log of the mean share
+        return self._aggregate(region_log_shares(s, lse))
 
+    def _stack(self, layers: List[int]) -> Optional[PooledRegions]:
+        """Pooled tables of `layers` stacked on a leading dim, or None if their region sets differ."""
+        if self._stacked is not None and self._stacked[0] == layers:
+            return self._stacked[1]
+        stores = [self.layers[l].pooled for l in layers]
+        if any(not torch.equal(s.counts, stores[0].counts) for s in stores[1:]):
+            return None
+        cov = None
+        if all(s.cov_basis is not None for s in stores):
+            cov = torch.stack([s.cov_basis for s in stores])
+        stacked = PooledRegions(torch.stack([s.keys for s in stores]), torch.stack([s.values for s in stores]),
+                                stores[0].counts, stores[0].log_m, cov)
+        self._stacked = (layers, stacked)
+        return stacked
+
+    # -- decode ----------------------------------------------------------------------------
     def step(self, layer: int, q: Tensor, step: int, other_lse: Optional[Tensor] = None) -> None:
-        """Score the regions, then plan and issue fetches and evictions (see the module docstring)."""
+        """Score this layer's regions now, then plan and issue its fetches and evictions."""
+        self._plan_and_fetch(layer, self.region_scores(layer, q, other_lse).detach().float().cpu(), step)
+
+    def queue_query(self, layer: int, q: Tensor, other_lse: Optional[Tensor] = None) -> None:
+        """Hold this layer's decode query for the batched decision in `end_step` (no copy, no sync)."""
+        self._queued[layer] = (q, other_lse)
+
+    def end_step(self, step: int) -> None:
+        """Every `refresh_every` steps: score all queued layers in one call, sync once, plan and fetch."""
+        queued, self._queued = self._queued, {}
+        if not queued or step % self.refresh_every != 0:
+            return
+        layers = sorted(queued)
+        stacked = self._stack(layers)
+        if stacked is None:                                   # region sets differ: per-layer fallback
+            for l in layers:
+                self.step(l, queued[l][0], step, queued[l][1])
+            return
+        q = torch.stack([queued[l][0] for l in layers])       # [Lq, heads, nq, d]
+        Lq, heads, nq, d = q.shape
+        kvh = stacked.keys.shape[1]
+        qg = q.reshape(Lq, kvh, heads // kvh * nq, d)
+        lse = None
+        if all(queued[l][1] is not None for l in layers):
+            lse = torch.stack([queued[l][1] for l in layers]).reshape(Lq, kvh, -1)
+        s = demand_scores(qg, stacked, scale=d ** -0.5, cov_mode=self.cfg.get("cov_mode", "capped"))
+        agg = self._aggregate(region_log_shares(s, lse)).detach().float().cpu()     # [Lq, R]: the one sync
+        for i, l in enumerate(layers):
+            self._plan_and_fetch(l, agg[i], step)
+
+    def _plan_and_fetch(self, layer: int, scores_cpu: Tensor, step: int) -> None:
         st = self.layers[layer]
-        fetches, evictions = self.pools[layer].plan(self.region_scores(layer, q, other_lse), step)
+        fetches, evictions = self.pools[layer].plan(scores_cpu, step)
         for region, slot in evictions:
             st.pending = [p for p in st.pending if p.region != region]
-            st.committed[region] = False                     # stand-in back in use immediately
+            if bool(st.committed[region]):
+                st.committed[region] = False
+                st.bias[region] = st.pooled.log_m[region].to(torch.float32)   # stand-in back in use now
             st.slot_len[slot] = 0
+            st.bias[st.slot_rows(slot)] = float("-inf")
         if not fetches:
             return
         if self._cuda:
@@ -224,17 +336,19 @@ class PagedVisualCache:
         for region, slot in fetches:
             m = st.region_len[region]
             a = st.region_start[region]
-            k_src, v_src = st.host_k[a:a + m], st.host_v[a:a + m]   # contiguous (pinned) views: no gather
+            k_src, v_src = st.host_k[a:a + m], st.host_v[a:a + m]   # contiguous (pinned) [m, kvh, d]: no gather
+            rows = st.slot_rows(slot)
+            dst = slice(rows.start, rows.start + m)
             event = None
             if self._cuda:
                 with torch.cuda.stream(self._copy_stream):
-                    st.slot_k[slot, :m].copy_(k_src, non_blocking=True)
-                    st.slot_v[slot, :m].copy_(v_src, non_blocking=True)
+                    st.buf_k[dst].copy_(k_src, non_blocking=True)
+                    st.buf_v[dst].copy_(v_src, non_blocking=True)
                     event = torch.cuda.Event()
                     event.record(self._copy_stream)
             else:
-                st.slot_k[slot, :m].copy_(k_src)
-                st.slot_v[slot, :m].copy_(v_src)
+                st.buf_k[dst].copy_(k_src)
+                st.buf_v[dst].copy_(v_src)
             st.pending.append(PendingFetch(region, slot, m, step + self.lookahead, event))
             self.bytes_h2d += k_src.numel() * k_src.element_size() + v_src.numel() * v_src.element_size()
 
@@ -248,6 +362,9 @@ class PagedVisualCache:
                 continue
             if p.event is not None:
                 torch.cuda.current_stream(self.device).wait_event(p.event)   # GPU-side wait, no host sync
+            rows = st.slot_rows(p.slot)
+            st.bias[slice(rows.start, rows.start + p.length)] = 0.0
+            st.bias[p.region] = float("-inf")                               # exact KV replaces the stand-in
             st.slot_len[p.slot] = p.length
             st.committed[p.region] = True
             done.append(p.region)
@@ -256,23 +373,16 @@ class PagedVisualCache:
 
     # -- attention inputs ------------------------------------------------------------------
     def attention_inputs(self, layer: int) -> Tuple[Tensor, Tensor, Tensor]:
-        """Visual part of K and V, [kvh, R + C·max_m, d] each, and the additive float32 bias [R + C·max_m]."""
+        """Visual K and V as [kvh, R + C·max_m, d] views, and the additive float32 bias [R + C·max_m]."""
         st = self.layers[layer]
-        C, max_m, kvh, d = st.slot_k.shape
-        pooled_bias = st.pooled.log_m.to(st.committed.device, torch.float32).masked_fill(st.committed, float("-inf"))
-        pos = torch.arange(max_m, device=st.slot_len.device)
-        valid = pos[None, :] < st.slot_len[:, None]
-        slot_bias = torch.zeros(valid.shape, dtype=torch.float32, device=valid.device).masked_fill(~valid, float("-inf"))
-        k = torch.cat([st.pooled.keys, st.slot_k.permute(2, 0, 1, 3).reshape(kvh, C * max_m, d)], dim=1)
-        v = torch.cat([st.pooled.values, st.slot_v.permute(2, 0, 1, 3).reshape(kvh, C * max_m, -1)], dim=1)
-        return k, v, torch.cat([pooled_bias, slot_bias.reshape(-1)])
+        return st.buf_k.permute(1, 0, 2), st.buf_v.permute(1, 0, 2), st.bias
 
     # -- accounting ------------------------------------------------------------------------
     def gpu_bytes(self) -> int:
-        """Device bytes held for visual KV: pooled table, covariance factors and slot buffers."""
+        """Device bytes held for visual KV: the persistent buffers (pooled rows + slots), bias, covariance."""
         total = 0
         for st in self.layers.values():
-            for t in (st.pooled.keys, st.pooled.values, st.pooled.cov_basis, st.slot_k, st.slot_v):
+            for t in (st.buf_k, st.buf_v, st.bias, st.pooled.cov_basis):
                 if t is not None:
                     total += t.numel() * t.element_size()
         return total

@@ -1,7 +1,10 @@
-# Gate G5: paging overhead per decode step. No dataset. Needs E000's measured decode ms/token:
-#   python scripts/run.py experiments/E005-paging-overhead-microbench/config.gate.yaml bench.baseline_decode_ms_per_token=<ms>
+# Gate G5: paging overhead per decode step. No dataset.
+#   python scripts/run.py experiments/E005-paging-overhead-microbench/config.gate.yaml --tag round1
+# Round 0 (2026-11-15) failed with the per-layer path; round 1 measures both paths and adds an
+# in-process baseline (the GPU is shared; see research/experiment_design.md § Timing on a shared GPU).
 extends:
   - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
 
 tier: gate
 requires_gates: [G1]
@@ -12,6 +15,7 @@ bench:
   heads: 32
   head_dim: 128
   paged_layers: 34            # layers_paged "2:" of 36
+  modes: [batched, per_layer] # batched = round 1; per_layer = round 0's scoring path (with round 1's buffers)
   visual_tokens: [1024, 4096, 8100]
   region_size: [2, 4]
   refresh_every: [1, 2, 4]
@@ -21,11 +25,19 @@ bench:
   min_residency: 4
   warmup_steps: 20
   steps: 200
-  baseline_decode_ms_per_token: null    # from E000 summary: <dataset>/mean_decode_ms_per_token
+  baseline_decode_ms_per_token: 42.9    # pre-registered: E000's ScreenSpot-Pro mean decode ms/token
+
+baseline_in_process:
+  enabled: true
+  visual_tokens: 4096         # synthetic 2048x2048 image → 64x64 merged tokens
+  rounds: 8
+  tokens_per_round: 32
 
 gate:
   visual_tokens: 4096
   region_size: 4
+  mode: batched
   max_refresh_every: 4
   max_overhead_frac: 0.15     # paging adds ≤ 15% to a full-KV decode step
   max_commit_frac: 0.05       # waiting for fetches adds ≤ 5% (lookahead hides the copy)
+  judge: preregistered        # preregistered | in_process. Switching needs the human (E005 README)

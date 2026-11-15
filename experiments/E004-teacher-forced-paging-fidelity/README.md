@@ -2,7 +2,7 @@
 
 - **Created:** 2026-11-12 · **Status:** ☐ planned · **Resolves:** gate G4; Q10, Q12
 - **Provenance:** [provenance.yaml](provenance.yaml) · **Tier:** gate only ([config.gate.yaml](config.gate.yaml)); requires G2 and G3
-- `run.py` is a stub until the masked-simulation hook exists. That hook is itself held until G2 and G3 pass.
+- Implemented 2026-11-16 ahead of its gates (decisions/0006): `src/cuekeep/sim/paged_sim.py` and `run.py`, tested on a tiny Qwen3-VL. The run stays held until G2 and G3 pass.
 
 ## Pre-registration (written 2026-11-12, before any run)
 
@@ -35,6 +35,17 @@ entries for the stand-in conditions; exact tokens only for prune-once.
 | Prune-once | top tokens by attention at the end of the prompt, fixed | dropped |
 | Random regions | random set, fixed | stand-ins |
 | Stand-ins only | none | stand-ins |
+
+**Clarifications (2026-11-16, before any run; decisions/0006).**
+- The reference for every comparison is full KV computed through the simulation's own float32 path
+  (`all_resident`), so differences between conditions come from paging alone. Criterion 1 compares
+  that path with the untouched model, which checks the hook.
+- CueKeep is simulated with the batched protocol of G5 round 1. After decode step t, step t's query
+  scores the regions; fetches are visible from t + lookahead, and evictions from t + 1. At the end of
+  prefill, all slots are filled from the last prompt query's scores (`prefill_fill`).
+- Criteria 2 and 3 are read at the method's region size, g = 4.
+- The decode positions compared are those that predict trace tokens 1 … n−1. The first trace token
+  comes from prefill, which is full attention for every condition.
 
 ### Gate tier (G4)
 

@@ -79,6 +79,26 @@ proposal for round 1 is to measure the full-KV decode step inside the same E005 
 with the paging measurements, and to compare medians. Until decided, round 1 reports both that and
 the pre-registered 42.9 ms.
 
+## Round 1 (prepared 2026-11-16, not yet run)
+
+Changes (decisions/0006):
+- persistent device buffers, so attention inputs are views;
+- scoring batched across all paged layers, with one host sync per refresh;
+- `SlotPool.plan` on plain Python lists (about 6× faster per call);
+- both scoring paths are measured (`batched`, `per_layer`).
+
+**In-process baseline.** The real model decodes at 4,096 visual tokens in 8 rounds of 32 tokens,
+interleaved with paging steps at the gate point. Medians are compared.
+
+**Judging.** Both verdicts are reported. `gate/pass` follows `gate.judge: preregistered` (E000's mean,
+42.9 ms) until the human decides whether the in-process baseline should judge.
+
+Laptop check (MPS, 34 layers, 4,096 tokens, g = 4; not representative of CUDA copies):
+| | refresh_every 1 | refresh_every 4 |
+|---|---|---|
+| Round 0 code | 42.3 ms/step | 15.9 ms/step |
+| Round 1, batched | 28.1 ms/step | 6.8 ms/step |
+
 ## Conclusion
 
 Paging bookkeeping in its first implementation is about 4× over budget, for engineering reasons

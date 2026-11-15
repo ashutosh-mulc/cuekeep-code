@@ -1,0 +1,33 @@
+# The main dump (research/experiment_design.md § The shared dump): for E001 main and E003 main.
+# Held until G2 and G3 pass. Test split: these samples are never used for tuning.
+#   GPUS=0 SCRIPT=scripts/dump_visual_kv.py bash scripts/launch.sh configs/dump/main.yaml
+extends:
+  - configs/dump/gate.yaml
+
+name: main
+tier: dump
+requires_gates: [G2, G3]
+
+datasets:
+  - name: screenspot_pro
+    source_annotations: local
+    annotations_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/annotations
+    images_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/images
+    prompt: gui_click
+    role: test
+    dev_size: 150
+    limit: 30
+  - name: mathvista
+    split: testmini
+    role: test
+    dev_size: 150
+    limit: 30
+
+capture:
+  layers: [0, 4, 5, 8, 11, 12, 16, 17, 20, 24, 28, 32, 35]
+  spread_steps: 64
+  min_trace: 16
+  dense:
+    samples_per_dataset: 5
+    length: 256
+    start_frac: 0.25

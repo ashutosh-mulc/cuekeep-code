@@ -110,3 +110,32 @@ def test_dump_then_gate_analyses_run(tiny_dir, tmp_path):
         assert summary["units"] == 8 and isinstance(summary["gate/pass"], bool)
         if exp.startswith("E001"):
             assert summary["gate/capture_max_rel_err"] < 0.01                # bf16 storage, as on the server
+
+
+def test_e004_paging_simulation_runs_and_hook_matches_model(tiny_dir):
+    out = _run(["scripts/run.py", "experiments/E004-teacher-forced-paging-fidelity/config.gate.yaml",
+                f"model.id={tiny_dir}", "device=cpu", "allow_cpu=true", "model.device_map=cpu", "model.dtype=bfloat16",
+                "model.max_new_tokens=48", 'method.layers_paged="1:"', "datasets=[{name: synthetic, n: 1, size: [352, 288]}]",
+                "--tag", "pytest", "--override-gates", "integration test"])
+    exp = "E004-teacher-forced-paging-fidelity"
+    rdir = REPO_ROOT / out.split(f"[run] {exp} → ")[1].split()[0]
+    s = json.loads((rdir / "summary.json").read_text())
+    assert s["samples_ok"] == 1
+    assert s["gate/equivalence_kl_mean"] < 1e-4 and s["gate/equivalence_top1"] == 1.0   # hook == model
+    rows = [json.loads(l) for l in (rdir / "rows.jsonl").read_text().splitlines()]
+    assert {r["condition"] for r in rows} == {"all_resident_vs_base", "cuekeep", "oracle", "prune_once",
+                                              "random_regions", "standins_only"}
+
+
+def test_e005_round1_with_in_process_baseline_runs(tiny_dir):
+    out = _run(["scripts/run.py", "experiments/E005-paging-overhead-microbench/config.gate.yaml",
+                f"model.id={tiny_dir}", "device=cpu", "model.device_map=cpu", "model.dtype=float32",
+                "bench.steps=6", "bench.warmup_steps=2", "bench.visual_tokens=[1024,4096]", "bench.refresh_every=[1,4]",
+                "bench.paged_layers=3", "baseline_in_process.rounds=2", "baseline_in_process.tokens_per_round=4",
+                "baseline_in_process.visual_tokens=144", "--tag", "pytest"])
+    exp = "E005-paging-overhead-microbench"
+    rdir = REPO_ROOT / out.split(f"[run] {exp} → ")[1].split()[0]
+    s = json.loads((rdir / "summary.json").read_text())
+    assert s["in_process/decode_samples"] == 2 * 3 and s["gate/judge"] == "preregistered"
+    assert s["gate/valid"] is False                                # timings only count on CUDA
+    assert "batched/n4096/g4/k4/total_ms" in s and "per_layer/n4096/g4/k4/total_ms" in s

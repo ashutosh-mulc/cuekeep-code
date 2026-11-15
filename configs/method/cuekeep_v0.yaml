@@ -9,6 +9,7 @@ method:
   fetch_budget: 2         # B: max regions fetched per refresh
   refresh_every: 1        # k: decode steps between re-scoring
   lookahead: 1            # fetch decided at step t becomes visible at t+lookahead (0 = synchronous)
+  prefill_fill: true      # at the end of prefill, fill all slots from the last prompt query's scores
   layers_paged: "2:"      # python slice over decoder layers
   score_agg: max          # max | mean over (head, query) of per-head-normalised log shares
   ema_decay: 0.9

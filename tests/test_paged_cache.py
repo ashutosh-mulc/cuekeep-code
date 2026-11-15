@@ -163,3 +163,79 @@ def test_random_regions_budget_and_seed():
     a = random_regions(20, 5, torch.Generator().manual_seed(3))
     b = random_regions(20, 5, torch.Generator().manual_seed(3))
     assert int(a.sum()) == 5 and torch.equal(a, b)
+
+
+# ----------------------------------------------------------------------------- G5 round 1: batched path
+
+def _multi_layer_caches(n_layers=3, h=6, w=6, g=2, kvh=2, d=8, **cfg):
+    rid = region_ids_for_grid(h, w, g)
+    gen = torch.Generator().manual_seed(0)
+    kv = [(torch.randn(kvh, h * w, d, generator=gen), torch.randn(kvh, h * w, d, generator=gen)) for _ in range(n_layers)]
+    base = {"slot_capacity": 3, "fetch_budget": 2, "min_residency": 1, "lookahead": 1, **cfg}
+    caches = []
+    for _ in range(2):
+        c = PagedVisualCache(dict(base), device="cpu")
+        for l, (k, v) in enumerate(kv):
+            c.ingest(l, k, v, rid)
+        caches.append(c)
+    return caches, kv, rid, gen
+
+
+def test_batched_end_step_matches_per_layer_step():
+    (per_layer, batched), kv, rid, gen = _multi_layer_caches()
+    for t in range(15):
+        qs = [torch.randn(4, 1, 8, generator=gen) for _ in kv]
+        lse = [torch.randn(4, 1, generator=gen) for _ in kv]
+        for l in range(len(kv)):
+            per_layer.commit(l, t)
+            batched.commit(l, t)
+            per_layer.step(l, qs[l], t, lse[l])
+            batched.queue_query(l, qs[l], lse[l])
+        batched.end_step(t)
+        for l in range(len(kv)):
+            assert per_layer.pools[l].region_to_slot == batched.pools[l].region_to_slot
+            assert torch.equal(per_layer.layers[l].committed, batched.layers[l].committed)
+            torch.testing.assert_close(per_layer.layers[l].bias, batched.layers[l].bias)
+    assert per_layer.bytes_h2d == batched.bytes_h2d > 0
+
+
+def test_end_step_scores_only_every_refresh_interval():
+    (_, c), kv, rid, gen = _multi_layer_caches(refresh_every=4)
+    for t in range(8):
+        for l in range(len(kv)):
+            c.commit(l, t)
+            c.queue_query(l, torch.randn(4, 1, 8, generator=gen))
+        before = {l: dict(c.pools[l].fetched_at) for l in range(len(kv))}
+        c.end_step(t)
+        changed = any(c.pools[l].fetched_at != before[l] for l in range(len(kv)))
+        assert changed == (t % 4 == 0)
+
+
+def test_attention_inputs_are_views_of_persistent_buffers():
+    (_, c), kv, rid, gen = _multi_layer_caches()
+    st = c.layers[0]
+    k1, v1, b1 = c.attention_inputs(0)
+    c.queue_query(0, torch.randn(4, 1, 8, generator=gen))
+    c.end_step(0)
+    c.commit(0, 1)
+    k2, v2, b2 = c.attention_inputs(0)
+    assert k1.data_ptr() == k2.data_ptr() == st.buf_k.data_ptr() and b1.data_ptr() == b2.data_ptr()
+    assert st.pooled.keys.data_ptr() == st.buf_k.data_ptr()             # no duplicate pooled table
+
+
+def test_bias_tracks_committed_regions_and_slots():
+    (_, c), kv, rid, gen = _multi_layer_caches()
+    st = c.layers[0]
+    R = st.num_regions
+    for t in range(6):
+        c.commit(0, t)
+        c.queue_query(0, torch.randn(4, 1, 8, generator=gen))
+        c.end_step(t)
+    c.commit(0, 6)
+    for r in range(R):
+        expect = float("-inf") if bool(st.committed[r]) else float(st.pooled.log_m[r])
+        assert float(st.bias[r]) == expect
+    for slot in range(st.capacity):
+        rows = st.bias[st.slot_rows(slot)]
+        m = int(st.slot_len[slot])
+        assert bool((rows[:m] == 0).all()) and bool(torch.isinf(rows[m:]).all())

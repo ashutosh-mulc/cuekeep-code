@@ -1,4 +1,5 @@
 # Gate G4: paging fidelity under teacher forcing (masked simulation). Held until G2 and G3 pass.
+#   python scripts/run.py experiments/E004-teacher-forced-paging-fidelity/config.gate.yaml
 extends:
   - configs/base.yaml
   - configs/model/qwen3_vl_4b_thinking.yaml
@@ -7,19 +8,39 @@ extends:
 tier: gate
 requires_gates: [G2, G3]
 
+model:
+  attn_implementation: sdpa   # required by the simulation hook
+  max_new_tokens: 16384
+
 datasets:
-  - {name: screenspot_pro, role: dev, dev_size: 150, limit: 16}     # copy the pinned source fields from E000
-  - {name: mathvista, role: dev, dev_size: 150, limit: 16}
+  # The first 16 of each dev split (they include the 8 + 8 of the gate dump).
+  - name: screenspot_pro
+    source_annotations: local
+    annotations_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/annotations
+    images_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/images
+    prompt: gui_click
+    role: dev
+    dev_size: 150
+    limit: 16
+  - name: mathvista
+    split: testmini
+    role: dev
+    dev_size: 150
+    limit: 16
+
 trace_tokens: 4096            # replay the first 4,096 generated tokens of each full-KV trace
+min_trace: 32
+chunk: 128                    # decode queries per attention chunk in the simulation
 
 sweep:
   region_size: [2, 4]
-  budgets: [0.10, 0.25, 1.0]  # 1.0 is the equivalence check
+  budgets: [0.10, 0.25]
   conditions: [cuekeep, oracle, prune_once, random_regions, standins_only]
 
 gate:
-  equivalence_min_top1: 0.999
+  equivalence_min_top1: 0.999 # 1. all_resident (simulation path) vs the untouched model
   equivalence_max_kl: 0.001
+  region_size: 4              # criteria 2-3 are read at the method's region size (clarified 2026-11-16, before any run)
   budget: 0.25
   max_kl_ratio_vs_prune_once: 0.5
   min_top1: 0.95
