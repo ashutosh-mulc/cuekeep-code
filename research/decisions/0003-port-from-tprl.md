@@ -31,3 +31,6 @@ This repo now lives in `ashutosh-mulc/cuekeep-code`. Its history was force-pushe
 `archive/tprl`, so the reference copy stays available. The branch `research/cuekeep` (`9585ad2`:
 the earlier Gate 0 scripts `vlm2_native.py`, `run_gate0.sh`, `RUN.md` and `TODO.md`, built on top of
 the TPRL fork) was left as it is. `cuekeep-lab` refers to it, and none of those files are in this repo.
+Later the same day, that commit was cherry-picked into `main` (`c73fd07`, original author and date
+kept). The files were moved to [legacy/vlm2_gate0/](../../legacy/vlm2_gate0/). The branch is still
+there.

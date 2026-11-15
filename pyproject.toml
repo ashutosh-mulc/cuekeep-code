@@ -40,3 +40,4 @@ markers = ["gpu: needs a CUDA device (run on the server)"]
 
 [tool.ruff]
 line-length = 120
+extend-exclude = ["legacy"]  # kept verbatim from the earlier direction; see legacy/vlm2_gate0/README.md

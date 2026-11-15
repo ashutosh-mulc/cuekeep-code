@@ -31,6 +31,7 @@ ViMoD, VisionPulse, SparseVILA and ShadowKV is set out in [research/related_work
 | [scripts/](scripts/) | `new_experiment.py`, `run.py`, `gate.py`, `launch.sh` / `slurm_template.sbatch`, `setup_server.sh`, `env_check.py`, `export_provenance.py`, `build_corpus.sh` |
 | [tests/](tests/) | Unit tests; the pooling-math tests run on CPU |
 | [third_party/](third_party/) | External codebases we borrow from: provenance, licenses, pinned commits |
+| [legacy/](legacy/) | Code from the earlier pruning direction, kept for reference and outside the gated pipeline: [vlm2_gate0/](legacy/vlm2_gate0/) (unpruned Qwen2.5-VL baselines on VLM²-Bench, and that direction's notes) |
 | `runs/` | Raw run outputs (gitignored). Curated results are copied into `experiments/E###/results/` |
 
 ## Workflow

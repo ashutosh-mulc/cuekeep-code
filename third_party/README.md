@@ -13,3 +13,4 @@ Checkouts used as references live in `third_party/src/` (gitignored).
 | Quest | github.com/mit-han-lab/Quest | check | — | Reference for min/max page scoring (reimplemented) | todo |
 | VLMEvalKit | github.com/open-compass/VLMEvalKit | Apache-2.0 | — (set by setup_server.sh) | Eval harness | todo |
 | Vortex | github.com/Infini-AI-Lab/vortex_torch | Apache-2.0 | — | Optional serving port (M4) | later |
+| VLM2-Bench | github.com/vlm2-bench/VLM2-Bench | Apache-2.0 (code; the HF dataset's license not checked) | `7624b77` (2025-05-20; still HEAD on 2026-11-15) | No code copied. `legacy/vlm2_gate0/run_gate0.sh` runs the official eval scripts from a clone (`BENCH`), and `vlm2_native.py` mirrors its Qwen test script's prompt | reference |
