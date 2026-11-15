@@ -79,7 +79,7 @@ def test_text_summary_reproduces_attention_with_text_keys():
     s = 8 ** -0.5
     lse, out = summarize_other(q, tk, tv, s)
     ref = attend_full(q, torch.cat([tk, k], 1), torch.cat([tv, v], 1), s)
-    torch.testing.assert_close(attend_full(q, k, v, s, lse, out), ref, rtol=1e-5, atol=1e-6)
+    torch.testing.assert_close(attend_full(q, k, v, s, lse, out), ref, rtol=1e-5, atol=1e-5)   # float32 math
 
 
 def test_shift_metrics_separate_moving_from_stationary_attention():

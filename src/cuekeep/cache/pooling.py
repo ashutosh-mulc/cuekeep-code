@@ -3,8 +3,10 @@
 Everything here is pure PyTorch and device-agnostic. It is the *reference* implementation that the
 cache layer and the fidelity experiment (E001) both use. See research/method.md for the derivation.
 
-Precision: pooling, covariance and all scores are computed in float32, whatever the input dtype.
-The pooled K/V are cast back to the input dtype, because attention consumes them.
+Precision: pooling, covariance, scores and reference attention are computed in at least float32
+(`_acc`): bf16 / fp16 inputs are upcast to float32, and float64 inputs stay float64, so the
+exactness tests can check exactness at float64 precision. The pooled K/V are cast back to the input
+dtype, because attention consumes them.
 
 Shape conventions
 -----------------
@@ -22,6 +24,11 @@ import torch
 from torch import Tensor
 
 COV_MODES = ("none", "quadratic", "capped")
+
+
+def _acc(x: Tensor) -> Tensor:
+    """x in its accumulation dtype: at least float32 (bf16/fp16 → float32; float64 stays float64)."""
+    return x.to(torch.promote_types(x.dtype, torch.float32))
 
 
 def region_ids_for_grid(h: int, w: int, g: int, device=None) -> Tensor:
@@ -60,8 +67,8 @@ class PooledRegions:
     keys: Tensor                         # [..., R, d] mean key per region (input dtype)
     values: Tensor                       # [..., R, d] mean value per region (input dtype)
     counts: Tensor                       # [R] tokens per region (m)
-    log_m: Tensor                        # [R] float32, log m: the logit bias of each stand-in
-    cov_basis: Optional[Tensor] = None   # [..., R, d, r] float32; Σ_R ≈ B Bᵀ, so qᵀΣq ≈ ‖Bᵀq‖²
+    log_m: Tensor                        # [R] log m (accumulation dtype): the logit bias of each stand-in
+    cov_basis: Optional[Tensor] = None   # [..., R, d, r] (accumulation dtype); Σ_R ≈ B Bᵀ, so qᵀΣq ≈ ‖Bᵀq‖²
 
     @property
     def num_regions(self) -> int:
@@ -81,21 +88,22 @@ def pool_regions(
     num_regions: Optional[int] = None,
     cov_rank: int = 0,
 ) -> PooledRegions:
-    """Mean-pool K/V per region (accumulated in float32). Optionally store a rank-r covariance factor."""
+    """Mean-pool K/V per region (accumulated in ≥ float32). Optionally store a rank-r covariance factor."""
     region_ids = region_ids.to(keys.device)
     R = int(num_regions if num_regions is not None else int(region_ids.max()) + 1)
     counts = torch.bincount(region_ids, minlength=R)
     if (counts == 0).any():
         raise ValueError("every region must contain at least one token")
-    denom = counts.to(torch.float32)[:, None]
-    k_bar32 = _scatter_sum(keys.float(), region_ids, R) / denom
-    v_bar32 = _scatter_sum(values.float(), region_ids, R) / denom
-    log_m = counts.to(torch.float32).log()
+    k_acc, v_acc = _acc(keys), _acc(values)
+    denom = counts.to(k_acc.dtype)[:, None]
+    k_bar = _scatter_sum(k_acc, region_ids, R) / denom
+    v_bar = _scatter_sum(v_acc, region_ids, R) / denom.to(v_acc.dtype)
+    log_m = counts.to(k_acc.dtype).log()
 
     cov_basis = None
     if cov_rank > 0:
-        cov_basis = _low_rank_covariance(keys.float(), k_bar32, region_ids, counts, cov_rank)
-    return PooledRegions(k_bar32.to(keys.dtype), v_bar32.to(values.dtype), counts, log_m, cov_basis)
+        cov_basis = _low_rank_covariance(k_acc, k_bar, region_ids, counts, cov_rank)
+    return PooledRegions(k_bar.to(keys.dtype), v_bar.to(values.dtype), counts, log_m, cov_basis)
 
 
 def _low_rank_covariance(keys32: Tensor, k_bar32: Tensor, region_ids: Tensor, counts: Tensor, rank: int) -> Tensor:
@@ -129,15 +137,15 @@ def _low_rank_covariance(keys32: Tensor, k_bar32: Tensor, region_ids: Tensor, co
 # ----------------------------------------------------------------------------- scores
 
 def pooled_logits(q: Tensor, pooled: PooledRegions, scale: float, use_log_m: bool = True) -> Tensor:
-    """Logit of each stand-in, scale·q·k̄ (+ log m), in float32. Returns [..., nq, R]."""
-    logits = scale * (q.float() @ pooled.keys.float().transpose(-1, -2))
+    """Logit of each stand-in, scale·q·k̄ (+ log m), in ≥ float32. Returns [..., nq, R]."""
+    logits = scale * (_acc(q) @ _acc(pooled.keys).transpose(-1, -2))
     if use_log_m:
-        logits = logits + pooled.log_m.to(logits.device)
+        logits = logits + pooled.log_m.to(logits.device, logits.dtype)
     return logits
 
 
 def demand_scores(q: Tensor, pooled: PooledRegions, scale: float, cov_mode: str = "capped") -> Tensor:
-    """Estimate of each region's log attention mass, log Σ_{i∈R} exp(scale·q·k_i), in float32. [..., nq, R].
+    """Estimate of each region's log attention mass, log Σ_{i∈R} exp(scale·q·k_i), in ≥ float32. [..., nq, R].
 
     With t = scale·√(qᵀΣ_R q) (low-rank Σ_R), and x_i = scale·q·(k_i − k̄) (mean 0, mean square t²):
       cov_mode="none"       s = scale·q·k̄ + log m                        (Jensen lower bound)
@@ -152,7 +160,7 @@ def demand_scores(q: Tensor, pooled: PooledRegions, scale: float, cov_mode: str 
     s = pooled_logits(q, pooled, scale)
     if pooled.cov_basis is None or cov_mode == "none":
         return s
-    proj = torch.einsum("...qd,...rdk->...qrk", q.float(), pooled.cov_basis.float())
+    proj = torch.einsum("...qd,...rdk->...qrk", _acc(q).to(s.dtype), pooled.cov_basis.to(s.dtype))
     t2 = scale**2 * proj.pow(2).sum(-1)                                   # scale² qᵀΣq
     corr = 0.5 * t2
     if cov_mode == "capped":
@@ -170,17 +178,17 @@ def region_log_shares(scores: Tensor, other_lse: Optional[Tensor] = None) -> Ten
     Shares are comparable across heads and queries, unlike raw log-masses: a head whose logits are
     large but that attends mostly to text must not dominate region selection.
     """
-    scores = scores.float()
+    scores = _acc(scores)
     parts = [scores]
     if other_lse is not None:
-        parts.insert(0, other_lse.float().unsqueeze(-1))
+        parts.insert(0, other_lse.to(scores.device, scores.dtype).unsqueeze(-1))
     lse = torch.logsumexp(torch.cat(parts, dim=-1), dim=-1, keepdim=True)
     return scores - lse
 
 
 def exact_region_log_mass(q: Tensor, keys: Tensor, region_ids: Tensor, num_regions: int, scale: float) -> Tensor:
-    """Ground truth log Σ_{i∈R} exp(scale·q·k_i), in float32. Returns [..., nq, R]."""
-    logits = scale * (q.float() @ keys.float().transpose(-1, -2))        # [..., nq, n]
+    """Ground truth log Σ_{i∈R} exp(scale·q·k_i), in ≥ float32. Returns [..., nq, R]."""
+    logits = scale * (_acc(q) @ _acc(keys).transpose(-1, -2))            # [..., nq, n]
     idx = region_ids.to(logits.device).expand_as(logits)
     mx = logits.new_full((*logits.shape[:-1], num_regions), float("-inf"))
     mx = mx.scatter_reduce(-1, idx, logits, reduce="amax", include_self=True)
@@ -199,17 +207,17 @@ def summarize_other(q: Tensor, other_k: Tensor, other_v: Tensor, scale: float):
     includes other entries, so KV dumps store these two small tensors per step instead of the
     whole text KV.
     """
-    logits = scale * (q.float() @ other_k.float().transpose(-1, -2))
-    return torch.logsumexp(logits, dim=-1), torch.softmax(logits, dim=-1) @ other_v.float()
+    logits = scale * (_acc(q) @ _acc(other_k).transpose(-1, -2))
+    return torch.logsumexp(logits, dim=-1), torch.softmax(logits, dim=-1) @ _acc(other_v).to(logits.dtype)
 
 
 def _combine(logits: Tensor, values: Tensor, other_lse: Optional[Tensor], other_out: Optional[Tensor]) -> Tensor:
     """Attention output over `logits`/`values`, plus an optional summarised group of other keys."""
     if other_lse is None:
         return torch.softmax(logits, dim=-1) @ values
-    lse = other_lse.float().unsqueeze(-1)
+    lse = other_lse.to(logits.device, logits.dtype).unsqueeze(-1)
     total = torch.logsumexp(torch.cat([lse, logits], dim=-1), dim=-1, keepdim=True)
-    return (lse - total).exp() * other_out.float() + (logits - total).exp() @ values
+    return (lse - total).exp() * other_out.to(logits.device, logits.dtype) + (logits - total).exp() @ values
 
 
 def attend_mixed(
@@ -234,30 +242,31 @@ def attend_mixed(
     standins : if False, non-resident regions are dropped instead of pooled (prune-style baseline).
     other_lse, other_out : optional summary of further keys (see `summarize_other`), used in place of,
                or in addition to, dense_k / dense_v.
-    Logits and softmax are computed in float32. Returns [..., nq, d_v] in the value dtype.
+    Logits and softmax are computed in ≥ float32 (`_acc`). Returns [..., nq, d_v] in the value dtype.
     """
     region_ids = region_ids.to(q.device)
     resident = resident.to(q.device)
-    qf = q.float()
+    qf = _acc(q)
+    dt = qf.dtype
     parts_logit, parts_v = [], []
     if dense_k is not None:
-        parts_logit.append(scale * (qf @ dense_k.float().transpose(-1, -2)))
-        parts_v.append(dense_v.float())
+        parts_logit.append(scale * (qf @ dense_k.to(dt).transpose(-1, -2)))
+        parts_v.append(dense_v.to(dt))
 
-    pl = pooled_logits(q, pooled, scale, use_log_m)
+    pl = pooled_logits(q, pooled, scale, use_log_m).to(dt)
     pl = pl.masked_fill(resident, float("-inf")) if standins else torch.full_like(pl, float("-inf"))
     parts_logit.append(pl)
-    parts_v.append(pooled.values.float())
+    parts_v.append(pooled.values.to(dt))
 
     tok_resident = resident[..., region_ids]
     if tok_resident.any():
         if tok_resident.dim() == 1:                       # shared set: attend only over the resident tokens
-            parts_logit.append(scale * (qf @ region_k[..., tok_resident, :].float().transpose(-1, -2)))
-            parts_v.append(region_v[..., tok_resident, :].float())
+            parts_logit.append(scale * (qf @ region_k[..., tok_resident, :].to(dt).transpose(-1, -2)))
+            parts_v.append(region_v[..., tok_resident, :].to(dt))
         else:                                             # per-query sets: mask the non-resident tokens
-            tl = scale * (qf @ region_k.float().transpose(-1, -2))
+            tl = scale * (qf @ region_k.to(dt).transpose(-1, -2))
             parts_logit.append(tl.masked_fill(~tok_resident, float("-inf")))
-            parts_v.append(region_v.float())
+            parts_v.append(region_v.to(dt))
 
     out = _combine(torch.cat(parts_logit, dim=-1), torch.cat(parts_v, dim=-2), other_lse, other_out)
     return out.to(region_v.dtype)
@@ -265,5 +274,5 @@ def attend_mixed(
 
 def attend_full(q: Tensor, k: Tensor, v: Tensor, scale: float,
                 other_lse: Optional[Tensor] = None, other_out: Optional[Tensor] = None) -> Tensor:
-    logits = scale * (q.float() @ k.float().transpose(-1, -2))
-    return _combine(logits, v.float(), other_lse, other_out).to(v.dtype)
+    logits = scale * (_acc(q) @ _acc(k).to(_acc(q).dtype).transpose(-1, -2))
+    return _combine(logits, v.to(logits.dtype), other_lse, other_out).to(v.dtype)

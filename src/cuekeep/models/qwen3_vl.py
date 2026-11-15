@@ -50,8 +50,10 @@ class Qwen3VLAdapter(VLMAdapter):
         return sum(p.numel() * p.element_size() for p in self.model.parameters())
 
     # -- inputs --------------------------------------------------------------------------------
-    def build_inputs(self, image, question: str) -> Dict[str, Any]:
+    def build_inputs(self, image, question: str, system: Optional[str] = None) -> Dict[str, Any]:
         messages = [{"role": "user", "content": [{"type": "image", "image": image}, {"type": "text", "text": question}]}]
+        if system:
+            messages.insert(0, {"role": "system", "content": [{"type": "text", "text": system}]})
         inputs = self.processor.apply_chat_template(
             messages, tokenize=True, add_generation_prompt=True, return_dict=True, return_tensors="pt"
         )
@@ -104,6 +106,7 @@ class Qwen3VLAdapter(VLMAdapter):
         truncated = n_new >= max_new and (n_new == 0 or int(new[-1]) not in self.eos_ids)
         return {
             "text": self.processor.decode(new, skip_special_tokens=True),
+            "token_ids": new.detach().cpu(),
             "num_new_tokens": n_new,
             "truncated": bool(truncated),
             "seconds": tracker.seconds,

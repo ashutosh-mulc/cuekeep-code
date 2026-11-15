@@ -125,15 +125,24 @@ def test_host_store_is_region_contiguous():
 
 def test_region_scores_use_per_head_shares():
     # Two loud heads attend almost only to text; two quiet heads attend strongly to region 3.
-    # Raw max of log-mass would follow the loud heads. Per-head shares must pick region 3.
-    cache, k, v, rid, gen = _cache(R_cap=1, kvh=4, d=8)
-    st = cache.layers[0]
-    q = torch.zeros(4, 1, 8)
-    q[:2] = 50 * st.pooled.keys[:2, 1:2].float() / st.pooled.keys[:2, 1:2].float().norm(dim=-1, keepdim=True)
-    q[2:] = 6 * st.pooled.keys[2:, 3:4].float() / st.pooled.keys[2:, 3:4].float().norm(dim=-1, keepdim=True)
+    # Raw max of log-mass would follow the loud heads to region 1. Per-head shares must pick region 3.
+    # Keys are built deterministically: every token of region r has key 3·e_r, so no seed can change the answer.
+    h, w, g, kvh, d = 4, 4, 2, 4, 8
+    rid = region_ids_for_grid(h, w, g)
+    k = torch.zeros(kvh, h * w, d)
+    for r in range(4):
+        k[:, rid == r, r] = 3.0
+    cache = PagedVisualCache({"slot_capacity": 1}, device="cpu")
+    cache.ingest(0, k, k.clone(), rid)
+    q = torch.zeros(4, 1, d)
+    q[:2, 0, 1] = 50.0                                     # loud heads point at region 1
+    q[2:, 0, 3] = 6.0                                      # quiet heads point at region 3
     other = torch.tensor([[60.0], [60.0], [-10.0], [-10.0]])          # loud heads' text logits dominate
     agg = cache.region_scores(0, q, other_lse=other)
     assert int(agg.argmax()) == 3
+    from cuekeep.cache import demand_scores
+    raw = demand_scores(q, cache.layers[0].pooled, d ** -0.5).amax(dim=(0, 1))
+    assert int(raw.argmax()) == 1                          # the old aggregation gets this wrong
 
 
 def test_ingest_rejects_second_call_for_same_layer():

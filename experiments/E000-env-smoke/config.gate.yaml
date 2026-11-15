@@ -10,11 +10,24 @@ model:
   max_new_tokens: 16384     # smoke budget; if any sample truncates, rerun with model.max_new_tokens=40960
 
 datasets:
-  # The first 20 of each dataset's fixed dev split (nested inside every later gate's sample).
+  # The first 20 samples of each dataset's fixed dev split (nested inside every later gate's sample).
   - {name: mme, split: test, role: dev, dev_size: 150, limit: 20}
-  # Source, field names and box format are unverified; pin them on the first run (see README).
-  - {name: screenspot_pro, hf_id: Voxel51/ScreenSpot-Pro, split: train, role: dev, dev_size: 150, limit: 20,
-     bbox_format: null, bbox_units: null, question_field: null, bbox_field: null}
+  # As run on 2026-11-15 (runs/E000-env-smoke/20261115-234047-gate): the original release on local disk,
+  # with the bare instruction as the prompt (prompt: bare), so answers were explanations, not clicks.
+  - name: screenspot_pro
+    source_annotations: local
+    annotations_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/annotations
+    images_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/images
+    hf_id: likaixin/ScreenSpot-Pro
+    split: test
+    role: dev
+    dev_size: 150
+    limit: 20
+    bbox_format: xyxy
+    bbox_units: pixels
+    question_field: instruction
+    bbox_field: bbox
+    prompt: bare
 
 gate:
   min_median_trace_tokens: 300        # on at least one dataset: traces are long enough for a decode-time method

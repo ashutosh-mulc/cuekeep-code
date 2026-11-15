@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -31,7 +31,7 @@ class VLMAdapter(ABC):
     def load(self) -> "VLMAdapter": ...
 
     @abstractmethod
-    def build_inputs(self, image, question: str) -> Dict[str, Any]: ...
+    def build_inputs(self, image, question: str, system: Optional[str] = None) -> Dict[str, Any]: ...
 
     @abstractmethod
     def visual_spans(self, inputs: Dict[str, Any]) -> List[VisualSpan]: ...

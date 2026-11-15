@@ -7,7 +7,13 @@ repro_lock: null
 repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E000-env-smoke/<timestamp>/."
 planned_vs_executed:
   - planned: "Gate tier (G1): trace length, visual-token share, prefill/decode time, decode-phase peak memory and KV byte breakdown on 20 MME + 20 ScreenSpot-Pro dev samples (full KV)"
-    executed: false
-    skip_reason: "not yet run"
-negative_results: []
-known_limitations: []
+    executed: true
+    result_file: experiments/E000-env-smoke/results/summary_20261115-234047-gate.json
+    metric: gate/pass
+negative_results:
+  - description: "The pre-registered hypothesis that visual KV is a minority of decode-time KV for long traces was refuted: on ScreenSpot-Pro it is 86% of the KV at the end of decoding (median), with a ~1k-token median trace."
+    result_file: experiments/E000-env-smoke/results/summary_20261115-234047-gate.json
+known_limitations:
+  - description: "ScreenSpot-Pro was prompted with the bare instruction, so the model wrote how-to explanations (0/20 click answers); its trace lengths do not measure the grounding task."
+  - description: "The GPU was shared with other jobs; decode times vary 26-101 ms/token, so mean timings are inflated."
+  - description: "The gate run used uncommitted server-side code (local-annotation loader, rewritten token-order check); the repo's later loader reproduces the same sample indices."

@@ -11,6 +11,7 @@ from cuekeep.eval import GenerationRecord, Summary
 from cuekeep.models import get_adapter
 
 
+@torch.inference_mode()
 def token_order_check(adapter) -> dict:
     """Is the merged-token sequence row-major over the merged grid? (region_ids_for_grid assumes so.)
 
@@ -63,7 +64,7 @@ def main(cfg: dict, run) -> dict:
             out_summary[f"{dcfg['name']}/load_error"] = repr(e)
             continue
         for j, s in enumerate(samples):
-            inputs = adapter.build_inputs(s["image"], s["question"])
+            inputs = adapter.build_inputs(s["image"], s["question"], s.get("system"))
             spans = adapter.visual_spans(inputs)
             n_vis = sum(sp.num_tokens for sp in spans)
             g = adapter.generate(inputs, seed=base_seed * 1_000_003 + j)   # per-sample seed, stable across methods

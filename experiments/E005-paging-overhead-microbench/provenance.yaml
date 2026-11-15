@@ -7,7 +7,11 @@ repro_lock: null
 repro_lock_reason: "GPU experiment run outside ARS with model Qwen/Qwen3-VL-4B-Thinking; no ARS prompts to hash. Config, git SHA and environment are recorded per run in runs/E005-paging-overhead-microbench/<timestamp>/."
 planned_vs_executed:
   - planned: "Gate tier (G5): per-step paging overhead and commit wait vs the full-KV decode step, for 1k/4k/8k visual tokens, g in {2,4}, refresh interval in {1,2,4}"
-    executed: false
-    skip_reason: "not yet run; held by gate G1"
-negative_results: []
-known_limitations: []
+    executed: true
+    result_file: experiments/E005-paging-overhead-microbench/results/summary_20261116-000009-gate.json
+    metric: gate/overhead_frac
+negative_results:
+  - description: "Gate G5 failed in round 0: per-step paging overhead was 0.60x of the pre-registered 42.9 ms full-KV decode step (limit 0.15), from a fixed per-layer cost of host syncs and Python bookkeeping (~2.6 ms per layer per refresh) plus ~4 ms per step building attention inputs."
+    result_file: experiments/E005-paging-overhead-microbench/results/summary_20261116-000009-gate.json
+known_limitations:
+  - description: "The GPU was shared with other jobs and the baseline came from another run (E000 mean, inflated by contention)."

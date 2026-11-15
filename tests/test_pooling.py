@@ -116,7 +116,7 @@ def test_covariance_factor_reconstructs_population_covariance():
         xc = x - x.mean(1, keepdim=True)
         sigma = xc.transpose(-1, -2) @ xc / x.shape[1]
         b = pooled.cov_basis[:, r]
-        torch.testing.assert_close(b @ b.transpose(-1, -2), sigma.float(), atol=1e-4, rtol=1e-4)
+        torch.testing.assert_close(b @ b.transpose(-1, -2), sigma, atol=1e-10, rtol=1e-8)   # float64 in, float64 math
 
 
 def test_capped_correction_never_exceeds_hard_bound():
@@ -150,4 +150,4 @@ def test_exact_region_log_mass_matches_bruteforce():
     logits = SCALE * q @ k.transpose(-1, -2)
     for r in range(R):
         ref = torch.logsumexp(logits[..., rid == r], dim=-1)
-        torch.testing.assert_close(got[..., r], ref.float())
+        torch.testing.assert_close(got[..., r], ref)

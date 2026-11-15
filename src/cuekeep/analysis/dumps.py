@@ -8,6 +8,7 @@ log-sum-exp and one mean value vector instead of the text KV (see `pooling.summa
 A dump is a directory of `.pt` files (or a single file). Each file holds one unit dict or a list of them:
 
     sample_id : str            dataset : str             layer : int
+    kind      : "spread" | "dense"         spread over the trace, or a window of consecutive steps
     grid      : (h, w)         merged-token grid of the (single) image
     rope      : "post" | "pre" whether k was captured after or before rotary embedding
     k, v      : [kvh, n_vis, d]            visual KV at this layer (bf16 is fine)
@@ -46,7 +47,7 @@ def to_unit(u: Dict[str, Any], device: Union[str, torch.device] = "cpu") -> Dict
     """Normalise a raw unit to the grouped form the experiments use.
 
     Output: k, v [kvh, n, d]; q [kvh, Q, d]; other_lse [kvh, Q] or None; other_out [kvh, Q, d] or None;
-    grid; steps (S, the number of decode steps); stride (decode steps between samples; 1 = dense window); name. With GQA, query head h belongs to KV head h // grp,
+    grid; steps (S, the number of decode steps); stride (decode steps between samples); kind; name. With GQA, query head h belongs to KV head h // grp,
     so [heads, S, ·] reshapes to [kvh, grp·S, ·], and the decode step of grouped query j is j % S.
 
     Units that carry text KV (`text_k`, `text_v`, with q already grouped [kvh, Q, d]), as the synthetic
@@ -72,8 +73,9 @@ def to_unit(u: Dict[str, Any], device: Union[str, torch.device] = "cpu") -> Dict
         steps = int(u.get("steps_per_group", q.shape[1]))
     st = u.get("steps")
     stride = int(torch.as_tensor(st).diff().float().median()) if st is not None and len(st) > 1 else None
+    kind = u.get("kind") or ("dense" if stride == 1 else "spread")   # dumps store kind; old units infer it
     name = u.get("name") or (f"{u.get('dataset', '?')}/{u.get('sample_id', '?')}/L{u.get('layer', '?')}"
-                             f"/{u.get('rope', 'post')}/{'dense' if stride == 1 else 'spread'}")
+                             f"/{u.get('rope', 'post')}/{kind}")
     return {"k": k, "v": v, "q": q, "other_lse": lse, "other_out": out, "grid": tuple(u["grid"]),
-            "steps": steps, "stride": stride, "name": name, "layer": u.get("layer"), "dataset": u.get("dataset"),
+            "steps": steps, "stride": stride, "kind": kind, "name": name, "layer": u.get("layer"), "dataset": u.get("dataset"),
             "sample_id": u.get("sample_id")}

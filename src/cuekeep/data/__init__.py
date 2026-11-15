@@ -2,7 +2,8 @@
 
 Main-table benchmarks run through VLMEvalKit / lmms-eval (see configs/eval/). These loaders cover
 fidelity studies and smoke tests. Ported from TPRL's `data/` (see research/decisions/0003).
-Every sample is normalised to: {"id", "image" (PIL), "question", "answer" | None, "bbox" | None, "meta"}.
+Every sample is normalised to: {"id", "image" (PIL), "question", "system" | None, "answer" | None,
+"bbox" | None, "meta"}. `system` is an optional system prompt (ScreenSpot-Pro's GUI prompt).
 
 Rows are chosen *before* they are decoded. A seeded permutation of the dataset indices is walked,
 and only the visited rows are read (`ds[i]` decodes one row), until `limit` usable samples are found.
@@ -73,4 +74,10 @@ def load_samples(cfg: Dict[str, Any]) -> List[Row]:
     if name == "screenspot_pro":
         from .screenspot_pro import load_screenspot_pro
         return load_screenspot_pro(cfg)
-    raise ValueError(f"unknown dataset: {name}")
+    if name == "mathvista":
+        from .mathvista import load_mathvista
+        return load_mathvista(cfg)
+    if name == "synthetic":
+        from .synthetic import load_synthetic
+        return load_synthetic(cfg)
+    raise ValueError(f"unknown dataset: {name} (mme | screenspot_pro | mathvista | synthetic)")

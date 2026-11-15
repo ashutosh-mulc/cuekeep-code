@@ -4,40 +4,77 @@ gates:
   G0:
     title: Environment and GPU code paths
     experiment: null
-    unlocks: [G1, G5]
-    status: pending
+    unlocks:
+    - G1
+    - G5
+    status: passed
+    evidence: runs/E000-env-smoke/20261115-234047-gate/env.json (H100, torch 2.15.0+cu132, transformers
+      5.23.0)
+    note: Server agent's G0 checks, reported 2026-11-15; its notebook record was not pushed (the server
+      cannot push). Recorded on the laptop from the decoded run files.
+    decided_by: agent
+    decided: '2026-11-15'
   G1:
     title: Premise census (trace length, visual-KV share, token order)
     experiment: E000-env-smoke
-    unlocks: [G2, G3, G5, G6]
-    status: pending
+    unlocks:
+    - G2
+    - G3
+    - G5
+    - G6
+    status: passed
+    evidence: runs/E000-env-smoke/20261115-234047-gate
+    note: 'token_order_row_major true; ScreenSpot-Pro median trace 1020 (>=300), median visual frac 0.996
+      (>=0.50); no truncation. Caveat: ScreenSpot-Pro used the bare instruction (0/20 click answers),
+      so its traces are how-to explanations; the long-trace premise is rechecked in the gate dump with
+      the task prompt.'
+    decided_by: agent
+    decided: '2026-11-15'
   G2:
     title: Stand-in fidelity on real keys
     experiment: E001-pooled-attention-fidelity
-    unlocks: [E001 main, G4]
+    unlocks:
+    - E001 main
+    - G4
     status: pending
   G3:
     title: Attention shift during decoding
     experiment: E003-attention-shift
-    unlocks: [E003 main, G7]
+    unlocks:
+    - E003 main
+    - G7
     status: pending
   G4:
     title: Paging fidelity under teacher forcing (masked simulation)
     experiment: E004-teacher-forced-paging-fidelity
-    unlocks: [G7, real offload build]
+    unlocks:
+    - G7
+    - real offload build
     status: pending
   G5:
     title: Paging overhead microbenchmark
     experiment: E005-paging-overhead-microbench
-    unlocks: [real offload build]
-    status: pending
+    unlocks:
+    - real offload build
+    status: failed
+    evidence: runs/E005-paging-overhead-microbench/20261116-000009-gate
+    note: 'Round 0: overhead 0.60x of the 42.9 ms pre-registered baseline (0.85x of the 30.2 ms median)
+      at 4096 tokens, g=4, refresh_every=4; limit 0.15. commit_frac 0.017 (<=0.05, lookahead hides the
+      copy). Cost is a fixed per-layer per-refresh overhead (~2.6 ms/layer), plus ~4 ms/step building
+      attention inputs.'
+    decided_by: agent
+    decided: '2026-11-15'
   G6:
     title: Reference harness sanity on the dev split
     experiment: E002-full-kv-reference
-    unlocks: [E002 main, G7]
+    unlocks:
+    - E002 main
+    - G7
     status: pending
   G7:
     title: Free-running accuracy pilot on the dev split
     experiment: E006-accuracy-memory-tradeoff
-    unlocks: [E006 main, baseline implementations]
+    unlocks:
+    - E006 main
+    - baseline implementations
     status: pending

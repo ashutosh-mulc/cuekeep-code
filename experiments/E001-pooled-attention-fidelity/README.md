@@ -34,20 +34,27 @@ It checks that the runner and metrics execute. Its numbers are not results and d
 
 - **Sample.** The gate dump: 8 ScreenSpot-Pro + 8 MathVista dev samples × layers {2, 5, 11, 17, 24, 35}
   × 64 decode steps (format: `src/cuekeep/analysis/dumps.py`). Sweep g ∈ {2, 4, 8}.
+- **Capture (added 2026-11-15, before any real run).** `scripts/dump_visual_kv.py configs/dump/gate.yaml`.
+  Each trace is generated with the model's own decoding and a per-sample seed; one teacher-forced pass
+  over prompt + trace then records the decode queries, visual K/V and text-key summary (tested on a
+  tiny Qwen3-VL to reproduce greedy decoding token for token, and to reconstruct the model's attention
+  output to float32 round-off). ScreenSpot-Pro is prompted with the benchmark's GUI-click prompt
+  (VLMEvalKit's), not the bare instruction used in E000. MathVista uses its `query` field.
 - **Pass criteria** (computed into `summary.json` as `gate/*`, on post-RoPE units):
   1. Capture check: our recomputed attention matches the model's recorded output, relative error < 0.01.
   2. The log m bias lowers the all-pooled median error in ≥ 80% of units, at every g.
   3. With the oracle top 25% of regions exact per step and the rest pooled, median output error is
      ≤ 0.10 at g ∈ {2, 4} in ≥ 75% of units; and stand-ins beat dropping the rest in ≥ 75% of units.
-- **On fail.** Criterion 1: the capture is wrong; fix `dump_visual_kv.py`. Criterion 3: rerun on the
-  pre-RoPE keys in the same dump (cheap), then (human). Criterion 2: (human); the bias is a claimed
-  contribution.
+- **On fail.** Criterion 1: the capture is wrong; fix `dump_visual_kv.py`. Criterion 3: (human). The
+  planned rescue, pooling pre-RoPE keys, needs a pre-RoPE capture that the first dump version does not
+  have (revised 2026-11-15, before any real run: re-rotating pooled keys under M-RoPE needs its own
+  design). Criterion 2: (human); the bias is a claimed contribution.
 - **Unlocks.** The main tier (and the main dump), and gate G4.
 
 ### Main tier (held by G2)
 
 - **Requires gates.** G2.
-- **Sample.** The main dump: 30 + 30 *test* samples × 13 layers × 64 steps, post- and pre-RoPE.
+- **Sample.** The main dump: 30 + 30 *test* samples × 13 layers × 64 steps (post-RoPE; pre-RoPE only if its capture is built).
 - **Success criteria.**
   1. Criteria 2 and 3 of the gate hold on the test samples, reported per layer.
   2. Top-8 recall of the true highest-mass regions improves by ≥ 5 points for the capped score at the

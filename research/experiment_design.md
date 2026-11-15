@@ -94,6 +94,21 @@ step stores the query, plus a two-tensor summary of the text keys' contribution 
 
 Worst case assumes 8,000 visual tokens per image. The main dump is only captured after G2 and G3 pass.
 
+Implementation (2026-11-15): `scripts/dump_visual_kv.py` with `configs/dump/gate.yaml`. Traces come
+from ordinary generation; the capture is one teacher-forced pass with a temporary wrapper on the SDPA
+attention function (`src/cuekeep/analysis/capture.py`). Pre-RoPE keys are not captured in this version.
+ScreenSpot-Pro uses the benchmark's GUI-click prompt.
+
+## Timing on a shared GPU (added 2026-11-15)
+
+The server GPU is shared with other jobs, which is normal and cannot be avoided. E000 saw decode
+times swing between 26 and 101 ms/token. So:
+- Report medians, not means, for every timing.
+- Never compare a timing with one measured in a different run. A timing gate measures its own
+  baseline in the same process, interleaved with the treatment, so both see the same contention.
+- For G5, this changes how the gate is judged after round 0 failed, so it needs the human's sign-off
+  (see E005). Until then, round 1 reports both the pre-registered baseline and the in-process one.
+
 ## Cost bookkeeping
 
 G1 measures decode speed r (tokens/s) and the median trace length T. Before launching any tier,

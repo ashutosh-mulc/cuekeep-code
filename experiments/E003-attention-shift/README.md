@@ -24,6 +24,12 @@ coverage of visual attention mass by:
 
 - **Sample.** The gate dump (shared with E001): 8 ScreenSpot-Pro + 8 MathVista dev samples × 6 layers
   × 64 spread steps; plus dense windows of 256 consecutive steps for 2 + 2 samples.
+- **Capture (added 2026-11-15, before any real run).** `scripts/dump_visual_kv.py configs/dump/gate.yaml`.
+  Each trace is generated with the model's own decoding and a per-sample seed; one teacher-forced pass
+  over prompt + trace then records the decode queries, visual K/V and text-key summary (tested on a
+  tiny Qwen3-VL to reproduce greedy decoding token for token, and to reconstruct the model's attention
+  output to float32 round-off). ScreenSpot-Pro is prompted with the benchmark's GUI-click prompt
+  (VLMEvalKit's), not the bare instruction used in E000. MathVista uses its `query` field.
 - **Pass criteria** (computed into `summary.json` as `gate/*`):
   1. At f = 10% and g = 4, the median (dynamic − static) coverage over spread units is ≥ 0.10 on at
      least one dataset.

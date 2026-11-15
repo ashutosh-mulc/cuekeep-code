@@ -27,11 +27,11 @@ experiment or a failed gate; its `negative_results` feed the paper's limitations
 
 | ID | Title | Gate | Main tier held by | Status | Key result | Created |
 |---|---|---|---|---|---|---|
-| [E000](E000-env-smoke/) | Environment smoke test + premise census | G1 | — (gate only) | ☐ planned | — | 2026-11-11 |
+| [E000](E000-env-smoke/) | Environment smoke test + premise census | G1 | — (gate only) | ✓ G1 passed | Visual KV is 86% of all KV at the end of a ~1k-token trace (ScreenSpot-Pro); prompt caveat | 2026-11-11 |
 | [E001](E001-pooled-attention-fidelity/) | Pooled stand-in fidelity | G2 | G2 | ☐ planned | — | 2026-11-11 |
 | [E002](E002-full-kv-reference/) | Full-KV reference on the thinking suite | G6 | G6 + cost approval | ☐ planned | — | 2026-11-11 |
 | [E003](E003-attention-shift/) | Attention shift during decoding | G3 | G3 | ☐ planned | — | 2026-11-12 |
 | [E004](E004-teacher-forced-paging-fidelity/) | Paging fidelity under teacher forcing | G4 | — (gate only) | ☐ planned | — | 2026-11-12 |
-| [E005](E005-paging-overhead-microbench/) | Paging overhead microbenchmark | G5 | — (gate only) | ☐ planned | — | 2026-11-12 |
+| [E005](E005-paging-overhead-microbench/) | Paging overhead microbenchmark | G5 | — (gate only) | ✗ G5 failed (round 0) | Overhead 0.60× of a decode step (limit 0.15): per-layer host syncs; lookahead hides the copy | 2026-11-12 |
 | [E006](E006-accuracy-memory-tradeoff/) | Accuracy vs visual-KV memory | G7 (pilot) | G3, G4, G6, G7 | ☐ planned | — | 2026-11-12 |
 <!-- index:end -->

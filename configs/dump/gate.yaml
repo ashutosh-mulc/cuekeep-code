@@ -1,0 +1,38 @@
+# The gate dump (research/experiment_design.md § The shared dump): one capture serves G3 (E003) and G2 (E001).
+#   python scripts/dump_visual_kv.py configs/dump/gate.yaml
+extends:
+  - configs/base.yaml
+  - configs/model/qwen3_vl_4b_thinking.yaml
+
+name: gate
+tier: dump
+requires_gates: [G1]
+
+model:
+  attn_implementation: sdpa   # required by the capture hook
+  max_new_tokens: 16384       # truncation is recorded in manifest.jsonl
+
+datasets:
+  # The first 8 of each dev split: nested inside E000's 20 (same loader order, checked 2026-11-15).
+  - name: screenspot_pro
+    source_annotations: local
+    annotations_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/annotations
+    images_dir: /group-volume/a.mulchandan/datasets/ScreenSpot-Pro/images
+    prompt: gui_click         # the benchmark task (VLMEvalKit's ScreenSpot-Pro prompt), not the bare instruction
+    role: dev
+    dev_size: 150
+    limit: 8
+  - name: mathvista
+    split: testmini
+    role: dev
+    dev_size: 150
+    limit: 8
+
+capture:
+  layers: [2, 5, 11, 17, 24, 35]
+  spread_steps: 64            # decode steps spread evenly over each trace
+  min_trace: 16               # shorter traces are recorded but not captured
+  dense:
+    samples_per_dataset: 2    # the first 2 samples of each dataset also get a dense window
+    length: 256               # consecutive decode steps
+    start_frac: 0.25          # starting 25% into the trace

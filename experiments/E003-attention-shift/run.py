@@ -31,7 +31,7 @@ def unit_rows(u: dict, raw: dict, cfg: dict) -> List[dict]:
         mass = per_step_mass(shares, u["steps"]).cpu()
         for f in cfg["budgets"]:
             rows.append({"unit": u["name"], "dataset": u["dataset"], "sample_id": u["sample_id"],
-                         "layer": u["layer"], "stride": u["stride"], "window": "dense" if u["stride"] == 1 else "spread",
+                         "layer": u["layer"], "stride": u["stride"], "window": u["kind"],
                          "g": g, "budget": f, **shift_metrics(mass, f, cfg.get("warmup_frac", 0.05))})
     return rows
 

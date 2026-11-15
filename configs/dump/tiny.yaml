@@ -1,0 +1,19 @@
+# CPU dry run of the dump pipeline on the tiny random Qwen3-VL (cuekeep.testing.tiny_qwen3vl).
+#   python scripts/dump_visual_kv.py configs/dump/tiny.yaml model.id=<tiny model dir>
+extends:
+  - configs/dump/gate.yaml
+name: tiny
+requires_gates: []
+device: cpu
+allow_cpu: true
+model:
+  id: null                    # set to the tiny model directory
+  dtype: bfloat16
+  device_map: cpu
+  max_new_tokens: 96
+datasets:
+  - {name: synthetic, n: 3, size: [352, 288]}
+capture:
+  layers: [0, 3]
+  spread_steps: 24
+  dense: {samples_per_dataset: 1, length: 48, start_frac: 0.25}

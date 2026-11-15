@@ -5,8 +5,21 @@ ICML 2027. Start with `research/overview.md` and `research/method.md`.
 
 ## On the GPU server
 
-Work through [SERVER_CHECKLIST.md](SERVER_CHECKLIST.md) in order, ticking items in that file as you
-go. It lists the stop conditions and the decisions that need the human.
+The server **cannot push to git**: it runs only what is prepared and pushed from the laptop. Follow
+[SERVER_CHECKLIST.md](SERVER_CHECKLIST.md): pull a clean commit, run the prepared commands, never edit
+tracked files there, and report by encoding the `runs/` folders (`encode_dir.sh`). Gate decisions,
+experiment records and the notebook are written on the laptop from the decoded runs.
+
+## On the laptop (preparing work for the server)
+
+- Everything that goes to the server must be tested first. Use a local environment that matches the
+  server (Python 3.12, torch 2.15.0, transformers 5.23.0; CPU), and the tiny Qwen3-VL
+  (`python -m cuekeep.testing.tiny_qwen3vl <dir>`) to run model-facing code end to end.
+  `pytest -q` covers the math, loaders, the tiny-model integration tests (`-m integration`) and
+  accelerator tests (`-m gpu`; MPS on a Mac, CUDA on the server).
+- Test tolerances must follow from the computation's precision, not be loosened until a test passes.
+  Check fragile assertions across many seeds, not just one.
+- The GPU is shared: timing gates measure their own baseline in-process and compare medians.
 
 ## Where things go
 

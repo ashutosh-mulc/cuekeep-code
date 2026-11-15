@@ -13,6 +13,7 @@ def normalize_mme(s: Dict[str, Any], i: int) -> Optional[Dict[str, Any]]:
         "id": str(s.get("question_id", f"mme-{i}")),
         "image": s["image"].convert("RGB"),
         "question": s["question"],
+        "system": None,
         "answer": s.get("answer"),
         "bbox": None,
         "meta": {"category": s.get("category"), "index": i},

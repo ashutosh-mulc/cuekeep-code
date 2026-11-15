@@ -259,7 +259,7 @@ class PagedVisualCache:
         """Visual part of K and V, [kvh, R + C·max_m, d] each, and the additive float32 bias [R + C·max_m]."""
         st = self.layers[layer]
         C, max_m, kvh, d = st.slot_k.shape
-        pooled_bias = st.pooled.log_m.to(st.committed.device).masked_fill(st.committed, float("-inf"))
+        pooled_bias = st.pooled.log_m.to(st.committed.device, torch.float32).masked_fill(st.committed, float("-inf"))
         pos = torch.arange(max_m, device=st.slot_len.device)
         valid = pos[None, :] < st.slot_len[:, None]
         slot_bias = torch.zeros(valid.shape, dtype=torch.float32, device=valid.device).masked_fill(~valid, float("-inf"))

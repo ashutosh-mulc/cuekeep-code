@@ -8,7 +8,7 @@ linking the evidence.
 | Q1 | Does the log m pooled stand-in approximate attention well on *real* Qwen3-VL keys, given that RoPE spreads keys within a region? Pool pre- or post-RoPE? | High | E001 (gate G2, then main) | open |
 | Q2 | Does the covariance correction track true region mass better than the plain pooled logit? What rank r is enough? | High | E001 main | open |
 | Q3 | Do the regions a thinking trace needs actually shift over decoding (H2)? | High | E003 (gate G3, then main). A failed G3 redirects the project | open |
-| Q4 | Can PCIe fetch latency be hidden with a 1-step lookahead at batch size 1? (Protocol implemented 2026-11-12; untested on GPU) | Medium | E005 (gate G5); `env_check.py` H2D bandwidth | open |
+| ~~Q4~~ | ~~Can PCIe fetch latency be hidden with a 1-step lookahead at batch size 1?~~ Yes: waiting for fetches costs 1.7% of a decode step (E005 round 0, `runs/E005-paging-overhead-microbench/20261116-000009-gate`). The remaining cost is bookkeeping, not the copy | Medium | E005 | **closed 2026-11-15** |
 | Q5 | Does degraded perception lengthen traces enough to cancel the per-token savings (the ViMoD effect)? | Medium | E006 pilot (G7) trace-growth criterion; total response time in every table | open |
 | Q6 | Reroute license: can we copy its code, or only take inspiration? | Medium | Check the repo | open |
 | Q7 | Does Vortex/SGLang support a Qwen3-VL decode path? | Low (optional) | 1-day smoke test | open |
@@ -18,3 +18,5 @@ linking the evidence.
 | Q11 | How many seeds does sampling decoding need for stable method comparisons? | Medium | E002 main seed variance | open |
 | Q12 | Does per-head share normalisation beat raw-max aggregation on real heads? (It wins on a constructed loud-head case; no difference on synthetic data without loud text heads) | Medium | E001 `agg/*` on real keys | open |
 | Q13 | Are the gate thresholds in `experiment_design.md` set at the right level? They were chosen before any data existed | Medium | Review after G1–G3; changes need the human and a note in decisions/0005 | open |
+| Q14 | How should timing gates be judged on a shared GPU, where decode times swing 26–101 ms/token (E000)? Proposal: measure the baseline in the same process, interleaved, and compare medians | Medium | Human decision for G5 round 1 (E005) | open |
+| Q15 | Are thinking traces long on the *real* tasks? E000's long ScreenSpot-Pro traces came from a bare-instruction prompt (explanations, 0/20 clicks); MME traces are short (median 104) | High | The gate dump records trace lengths with the GUI-click prompt and on MathVista | open |
